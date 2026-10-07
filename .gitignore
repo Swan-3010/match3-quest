@@ -1,0 +1,7 @@
+/vendor/
+/node_modules/
+/.env
+*.sqlite
+/storage/logs/*.log
+/bootstrap/cache/*
+.DS_Store
