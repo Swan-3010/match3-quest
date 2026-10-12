@@ -550,20 +550,21 @@ export class Match3Engine {
             }
           } else {
             this._stuckSeconds = 0;
-            if (this.renderer && this.renderer.boardContainer && this.state && this.state.grid.length) {
-              try {
-                const GR = CONFIG.GRID_SIZE;
-                let holes = 0;
-                for (let r = 0; r < GR; r++) {
-                  for (let c = 0; c < GR; c++) {
-                    const t = this.state.grid[r][c];
-                    if (t.color === -1 && !t.special) holes++;
-                  }
+          }
+          // Лечение state и поля — ВСЕГДА, даже посреди обработки хода
+          if (this.renderer && this.renderer.boardContainer && this.state && this.state.grid.length) {
+            try {
+              const GR = CONFIG.GRID_SIZE;
+              let holes = 0;
+              for (let r = 0; r < GR; r++) {
+                for (let c = 0; c < GR; c++) {
+                  const t = this.state.grid[r][c];
+                  if (t.color === -1 && !t.special) holes++;
                 }
-                if (holes > 0) { console.warn('watchdog: filling', holes, 'holes'); this._fillStateHoles(); }
-                this.repairSync();
-              } catch (e) { console.error('watchdog heal:', e); }
-            }
+              }
+              if (holes > 0) { console.warn('watchdog: filling', holes, 'holes'); this._fillStateHoles(); }
+              this.repairSync();
+            } catch (e) { console.error('watchdog heal:', e); }
           }
         } catch (e) { console.error('watchdog error', e); }
       }, 3000);
@@ -632,7 +633,7 @@ export class Match3Engine {
   async _processMatches() {
     this.state.cascadeCount = 0;
     let cascadeGuard = 0;
-    while (cascadeGuard++ < 30) {
+    while (cascadeGuard++ < 12) {
       const matches = this.state.findMatches();
       if (matches.length === 0) break;
       this.state.cascadeCount++;
@@ -825,7 +826,7 @@ export class Match3Engine {
   }
 
   // Сторожевой таймаут: не даём анимации зависнуть (фоновая вкладка, ошибка rAF)
-  _raceTimeout(promise, ms = 2000) {
+  _raceTimeout(promise, ms = 800) {
     return Promise.race([
       promise,
       new Promise(resolve => setTimeout(() => {

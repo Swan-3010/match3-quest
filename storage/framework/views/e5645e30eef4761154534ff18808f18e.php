@@ -113,9 +113,9 @@
 window.API_BASE = document.querySelector('meta[name="api-base"]').content;
 window.CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 </script>
-<script src="<?php echo e(asset('assets/js/auth.js')); ?>"></script>
-<script src="<?php echo e(asset('assets/js/api-client.js')); ?>"></script>
-<script type="module" src="<?php echo e(asset('assets/js/app.js')); ?>"></script>
+<script src="<?php echo e(asset('assets/js/auth.js?v=20261012b')); ?>"></script>
+<script src="<?php echo e(asset('assets/js/api-client.js?v=20261012b')); ?>"></script>
+<script type="module" src="<?php echo e(asset('assets/js/app.js?v=20261012b')); ?>"></script>
 <?php echo $__env->yieldPushContent('scripts'); ?>
 </body>
 </html><?php /**PATH /home/dmitriy_a_lebedev/projects/match3-quest/resources/views/layouts/app.blade.php ENDPATH**/ ?>
