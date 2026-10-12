@@ -855,9 +855,35 @@ export class Match3Engine {
     await this._processMatches();
   }
 
+  async _activateBooster(type, r, c) {
+    if (this.processing) return;
+    this.processing = true;
+    try {
+      const toDestroy = [];
+      if (type === 'hammer') {
+        toDestroy.push({ r, c, color: this.state.grid[r][c].color });
+      } else if (type === 'row') {
+        for (let cc = 0; cc < CONFIG.GRID_SIZE; cc++) {
+          toDestroy.push({ r, c: cc, color: this.state.grid[r][cc].color });
+        }
+      } else if (type === 'col') {
+        for (let rr = 0; rr < CONFIG.GRID_SIZE; rr++) {
+          toDestroy.push({ r: rr, c, color: this.state.grid[rr][c].color });
+        }
+      }
+      if (toDestroy.length > 0) {
+        await this._destroyTiles(toDestroy);
+        await this._applyGravity();
+        await this._processMatches();
+      }
+    } finally {
+      this.processing = false;
+    }
+  }
+
   useBooster(type, targetR, targetC) {
     if (this.processing) return;
-    // Implement booster logic
+    // Legacy signature — delegated to app.js booster flow
   }
 
   shuffle() {

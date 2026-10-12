@@ -138,13 +138,17 @@
     <label>Пароль</label>
     <input type="password" class="input-field" id="authPassword" placeholder="••••••••">
   </div>
-  <button class="btn btn-primary" onclick="handleLogin()">Войти</button>
+  <div class="input-group" id="confirmGroup" style="display:none;">
+    <label>Повторите пароль</label>
+    <input type="password" class="input-field" id="authPasswordConfirm" placeholder="••••••••">
+  </div>
+  <button class="btn btn-primary" id="authMainBtn" onclick="handleLogin()">Войти</button>
   <div class="auth-links">
     <a href="#" onclick="showToast('Форма восстановления')">Забыли пароль?</a>
     <a href="#" onclick="handleGuest()">Играть без регистрации</a>
   </div>
   <div class="auth-divider">или</div>
-  <button class="btn btn-secondary" onclick="handleRegister()">Создать аккаунт</button>
+  <button class="btn btn-secondary" id="authToggleBtn" onclick="toggleAuthMode()">Создать аккаунт</button>
 </div>
 
 <!-- SCREEN: MENU -->
@@ -185,15 +189,16 @@
 
 <!-- SCREEN: GAME -->
 <div class="screen" id="screen-game">
+  <button class="btn btn-secondary" onclick="app.goBack()" style="position:absolute;top:8px;left:8px;z-index:10;padding:6px 12px;font-size:13px;">← Меню</button>
   <div class="game-header">
     <div class="game-stat"><div class="lbl">Цель</div><div class="val" id="gameTarget">0</div></div>
     <div class="game-stat"><div class="lbl">Счёт</div><div class="val" id="gameScore" style="color:var(--gold)">0</div></div>
     <div class="game-stat"><div class="lbl">Ходы</div><div class="val" id="gameMoves" style="color:var(--danger)">0</div></div>
   </div>
   <div class="game-boosters">
-    <div class="booster-chip" onclick="app.gameEngine?.useBooster('hammer')"><span class="icon">🔨</span><span class="qty">×3</span></div>
-    <div class="booster-chip" onclick="app.gameEngine?.useBooster('row')"><span class="icon">➡️</span><span class="qty">×2</span></div>
-    <div class="booster-chip" onclick="app.gameEngine?.useBooster('col')"><span class="icon">⬇️</span><span class="qty">×2</span></div>
+    <div class="booster-chip" onclick="app.useBooster('hammer')"><span class="icon">🔨</span><span class="qty">×3</span></div>
+    <div class="booster-chip" onclick="app.useBooster('row')"><span class="icon">➡️</span><span class="qty">×2</span></div>
+    <div class="booster-chip" onclick="app.useBooster('col')"><span class="icon">⬇️</span><span class="qty">×2</span></div>
     <div class="booster-chip" onclick="app.gameEngine?.shuffle()"><span class="icon">🔀</span><span class="qty">Shuffle</span></div>
   </div>
   <div class="canvas-area">
@@ -329,3 +334,24 @@ App.prototype.showScreen = function(name) {
 </script>
 
 @endsection
+
+<script>
+let authMode = 'login';
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  const confirmGroup = document.getElementById('confirmGroup');
+  const mainBtn = document.getElementById('authMainBtn');
+  const toggleBtn = document.getElementById('authToggleBtn');
+  if (authMode === 'register') {
+    confirmGroup.style.display = 'block';
+    mainBtn.textContent = 'Создать аккаунт';
+    mainBtn.setAttribute('onclick', 'handleRegister()');
+    toggleBtn.textContent = 'Уже есть аккаунт? Войти';
+  } else {
+    confirmGroup.style.display = 'none';
+    mainBtn.textContent = 'Войти';
+    mainBtn.setAttribute('onclick', 'handleLogin()');
+    toggleBtn.textContent = 'Создать аккаунт';
+  }
+}
+</script>

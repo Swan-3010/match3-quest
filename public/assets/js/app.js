@@ -180,6 +180,47 @@ class App {
     document.getElementById('resultOverlay').classList.remove('active');
   }
 
+  // ===== BOOSTERS =====
+  useBooster(type) {
+    if (!this.gameEngine || this.gameEngine.processing) {
+      this.showToast('Подождите окончания хода');
+      return;
+    }
+    this._pendingBooster = type;
+    this.showToast('Нажмите на ячейку поля');
+    const container = document.getElementById('gameCanvasContainer');
+    // Remove old listener if any
+    if (this._boosterHandler) {
+      container.removeEventListener('click', this._boosterHandler);
+    }
+    this._boosterHandler = (e) => {
+      const rect = container.getBoundingClientRect();
+      const renderer = this.gameEngine.renderer;
+      const ts = renderer.tileSize;
+      const gap = renderer.gap;
+      const pad = renderer.padding;
+      const x = (e.clientX - rect.left) * (renderer.app.screen.width / rect.width);
+      const y = (e.clientY - rect.top) * (renderer.app.screen.height / rect.height);
+      const c = Math.floor((x - pad) / (ts + gap));
+      const r = Math.floor((y - pad) / (ts + gap));
+      if (r >= 0 && r < 9 && c >= 0 && c < 9) {
+        this.gameEngine._activateBooster(this._pendingBooster, r, c);
+      }
+      this._pendingBooster = null;
+      container.removeEventListener('click', this._boosterHandler);
+      this._boosterHandler = null;
+    };
+    container.addEventListener('click', this._boosterHandler);
+  }
+
+  goBack() {
+    if (this.gameEngine) {
+      this.gameEngine.destroy();
+      this.gameEngine = null;
+    }
+    this.showScreen('menu');
+  }
+
   // ===== SHOP =====
   async loadShop(category = null) {
     this.showLoading(true);
