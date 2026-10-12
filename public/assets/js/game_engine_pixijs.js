@@ -608,6 +608,22 @@ export class Match3Engine {
       return;
     }
 
+    // Single special activation
+    if (t1.special || t2.special) {
+      this.processing = true;
+      try {
+        const specialTile = t1.special ? t1 : t2;
+        const targetTile = t1.special ? t2 : t1;
+        await this._activateSpecial(specialTile, targetTile);
+        this.state.moves--;
+        this.state.moves_log.push({ from: [r1, c1], to: [r2, c2] });
+        this._emit('movesChanged', this.state.moves);
+      } finally {
+        this.processing = false;
+      }
+      return;
+    }
+
     // Animate swap
     this.processing = true;
     try {
@@ -800,6 +816,42 @@ export class Match3Engine {
     }
 
     this._emit('scoreChanged', this.state.score);
+    await this._processMatches();
+  }
+
+  async _activateSpecial(specialTile, targetTile) {
+    const type = specialTile.special;
+    const r = specialTile.r;
+    const c = specialTile.c;
+    const toDestroy = [];
+
+    if (type === 'ROCKET_H') {
+      for (let cc = 0; cc < CONFIG.GRID_SIZE; cc++) {
+        toDestroy.push({ r, c: cc, color: this.state.grid[r][cc].color });
+      }
+    } else if (type === 'ROCKET_V') {
+      for (let rr = 0; rr < CONFIG.GRID_SIZE; rr++) {
+        toDestroy.push({ r: rr, c, color: this.state.grid[rr][c].color });
+      }
+    } else if (type === 'BOMB') {
+      for (let rr = Math.max(0, r - 1); rr <= Math.min(CONFIG.GRID_SIZE - 1, r + 1); rr++) {
+        for (let cc = Math.max(0, c - 1); cc <= Math.min(CONFIG.GRID_SIZE - 1, c + 1); cc++) {
+          toDestroy.push({ r: rr, c: cc, color: this.state.grid[rr][cc].color });
+        }
+      }
+    } else if (type === 'DISCO') {
+      const targetColor = targetTile.color;
+      for (let rr = 0; rr < CONFIG.GRID_SIZE; rr++) {
+        for (let cc = 0; cc < CONFIG.GRID_SIZE; cc++) {
+          if (this.state.grid[rr][cc].color === targetColor) {
+            toDestroy.push({ r: rr, c: cc, color: targetColor });
+          }
+        }
+      }
+    }
+
+    await this._destroyTiles(toDestroy);
+    await this._applyGravity();
     await this._processMatches();
   }
 
