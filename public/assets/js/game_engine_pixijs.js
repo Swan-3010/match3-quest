@@ -342,7 +342,9 @@ class GameRenderer {
     const ts = this.tileSize;
 
     if (tile.special) {
-      const def = SPECIAL_DEFS[tile.special];
+      const def = SPECIAL_DEFS[tile.special]
+        || SPECIAL_DEFS[String(tile.special).replace('_H', '').replace('_V', '')]
+        || { color: 0xffd700 };
       g.beginFill(def.color);
       g.drawRoundedRect(2, 2, ts - 4, ts - 4, CONFIG.TILE_RADIUS);
       g.endFill();
@@ -533,6 +535,39 @@ export class Match3Engine {
 
   async init(levelConfig) {
     this._completeSent = false;
+    if (!this._watchdogStarted) {
+      this._watchdogStarted = true;
+      // Фоновый сторож: поле всегда самовосстанавливается
+      setInterval(() => {
+        try {
+          if (this.processing) {
+            this._stuckSeconds = (this._stuckSeconds || 0) + 3;
+            if (this._stuckSeconds >= 15) {
+              console.error('engine: processing stuck 15s — force reset');
+              this.processing = false;
+              this._stuckSeconds = 0;
+              this.repairSync();
+            }
+          } else {
+            this._stuckSeconds = 0;
+            if (this.renderer && this.renderer.boardContainer && this.state && this.state.grid.length) {
+              try {
+                const GR = CONFIG.GRID_SIZE;
+                let holes = 0;
+                for (let r = 0; r < GR; r++) {
+                  for (let c = 0; c < GR; c++) {
+                    const t = this.state.grid[r][c];
+                    if (t.color === -1 && !t.special) holes++;
+                  }
+                }
+                if (holes > 0) { console.warn('watchdog: filling', holes, 'holes'); this._fillStateHoles(); }
+                this.repairSync();
+              } catch (e) { console.error('watchdog heal:', e); }
+            }
+          }
+        } catch (e) { console.error('watchdog error', e); }
+      }, 3000);
+    }
     await this.renderer.init();
     this.state.init(levelConfig);
     // Стартовые дыры: если генерация оставила пустые ячейки — досыпаем сразу
@@ -589,15 +624,15 @@ export class Match3Engine {
         this.state._swap(r1, c1, r2, c2);
       }
     } finally {
-      this.repairSync();
-      this.processing = false;
+      this.processing = false; // ввод отпускаем ВСЕГДА, даже если отрисовка упала
+      try { this.repairSync(); } catch (e) { console.error('repairSync failed:', e); }
     }
   }
 
   async _processMatches() {
     this.state.cascadeCount = 0;
     let cascadeGuard = 0;
-    while (cascadeGuard++ < 100) {
+    while (cascadeGuard++ < 30) {
       const matches = this.state.findMatches();
       if (matches.length === 0) break;
       this.state.cascadeCount++;
@@ -626,6 +661,7 @@ export class Match3Engine {
       }
 
       await this._applyGravity();
+      this.repairSync(); // истина из state: таймауты анимаций больше не накапливают мусор
     }
 
     // Страховка: если после цикла остались пустые ячейки (напр. после комбо) — досыпаем
@@ -636,6 +672,7 @@ export class Match3Engine {
       }
     }
     if (hasEmpty) await this._applyGravity();
+    this.repairSync();
 
     if (!this.state.hasAnyMove()) {
       this._emit('noMoves');
@@ -754,6 +791,37 @@ export class Match3Engine {
 
   destroy() {
     this.renderer.destroy();
+  }
+
+  // Досыпка пустых ячеек в state (без анимаций) — для сторожа
+  _fillStateHoles() {
+    const GR = CONFIG.GRID_SIZE;
+    for (let c = 0; c < GR; c++) {
+      let writeRow = GR - 1;
+      for (let r = GR - 1; r >= 0; r--) {
+        const t = this.state.grid[r][c];
+        if (!(t.color === -1 && !t.special)) {
+          if (r !== writeRow) {
+            this.state.grid[writeRow][c] = t;
+            t.r = writeRow;
+            this.state.grid[r][c] = new Tile(r, c, -1);
+          }
+          writeRow--;
+        }
+      }
+      const colorCount = this.state.level >= 100 ? 6 : CONFIG.COLORS;
+      for (let r = writeRow; r >= 0; r--) {
+        let color, guard = 0;
+        do {
+          color = Math.floor(Math.random() * colorCount);
+          guard++;
+        } while (guard < 50 && (
+          (c >= 2 && this.state.grid[r][c-1].color === color && this.state.grid[r][c-2].color === color) ||
+          (r <= GR - 3 && this.state.grid[r+1][c].color === color && this.state.grid[r+2][c].color === color)
+        ));
+        this.state.grid[r][c] = new Tile(r, c, color);
+      }
+    }
   }
 
   // Сторожевой таймаут: не даём анимации зависнуть (фоновая вкладка, ошибка rAF)
