@@ -431,7 +431,7 @@ class GameRenderer {
         vis.alpha = 1 - p;
         if (p < 1) requestAnimationFrame(animate);
         else {
-          this.boardContainer.removeChild(vis);
+          try { this.boardContainer.removeChild(vis); } catch(e) {}
           completed++; doneDestroy();
         }
       };
@@ -550,9 +550,8 @@ export class Match3Engine {
             }
           } else {
             this._stuckSeconds = 0;
-          }
-          // Лечение state и поля — ВСЕГДА, даже посреди обработки хода
-          if (this.renderer && this.renderer.boardContainer && this.state && this.state.grid.length) {
+            // FIX: лечим поле ТОЛЬКО когда не в процессе хода
+            if (this.renderer && this.renderer.boardContainer && this.state && this.state.grid.length) {
             try {
               const GR = CONFIG.GRID_SIZE;
               let holes = 0;
@@ -597,11 +596,14 @@ export class Match3Engine {
     // Combo check
     if (t1.special && t2.special) {
       this.processing = true;
-      await this._resolveCombo(t1.special, t2.special, r1, c1, r2, c2);
-      this.state.moves--;
-      this.state.moves_log.push({ from: [r1, c1], to: [r2, c2] });
-      this._emit('movesChanged', this.state.moves);
-      this.processing = false;
+      try {
+        await this._resolveCombo(t1.special, t2.special, r1, c1, r2, c2);
+        this.state.moves--;
+        this.state.moves_log.push({ from: [r1, c1], to: [r2, c2] });
+        this._emit('movesChanged', this.state.moves);
+      } finally {
+        this.processing = false;
+      }
       return;
     }
 
@@ -655,6 +657,12 @@ export class Match3Engine {
         const spTile = this.state.grid[center.r][center.c];
         spTile.special = specialForm;
         spTile.color = -1;
+        // FIX: пересоздаём спрайт special tile
+        const oldVis = spTile.visual;
+        if (oldVis && oldVis.parent) oldVis.parent.removeChild(oldVis);
+        const newVis = this.renderer._createTileSprite(spTile);
+        spTile.visual = newVis;
+        this.renderer.boardContainer.addChild(newVis);
         const others = matches.filter(m => !(m.r === center.r && m.c === center.c));
         await this._destroyTiles(others);
       } else {
@@ -662,7 +670,6 @@ export class Match3Engine {
       }
 
       await this._applyGravity();
-      this.repairSync(); // истина из state: таймауты анимаций больше не накапливают мусор
     }
 
     // Страховка: если после цикла остались пустые ячейки (напр. после комбо) — досыпаем
@@ -690,7 +697,11 @@ export class Match3Engine {
   }
 
   async _destroyTiles(tiles) {
-    await this._raceTimeout(new Promise(resolve => this.renderer.animateDestroy(tiles, resolve)));
+    const tilesWithVis = tiles.map(t => {
+      const vis = this.renderer._getVisual(t.r, t.c);
+      return { ...t, vis };
+    });
+    await this._raceTimeout(new Promise(resolve => this.renderer.animateDestroy(tilesWithVis, resolve)));
     for (const t of tiles) {
       this.state.grid[t.r][t.c] = new Tile(t.r, t.c, -1);
     }
@@ -705,6 +716,7 @@ export class Match3Engine {
           if (r !== writeRow) {
             moves.push({ from: { r, c }, to: { r: writeRow, c } });
             this.state.grid[writeRow][c] = this.state.grid[r][c];
+            this.state.grid[writeRow][c].r = writeRow;
             this.state.grid[r][c] = new Tile(r, c, -1);
           }
           writeRow--;
@@ -748,32 +760,42 @@ export class Match3Engine {
       for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
         for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
           toDestroy.push({ r, c, color: this.state.grid[r][c].color });
+        }
+      }
+      await this._destroyTiles(toDestroy);
+      for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
           this.state.grid[r][c] = new Tile(r, c, Math.floor(Math.random() * CONFIG.COLORS));
         }
       }
       this.state.score += combo.score;
-      await this._destroyTiles(toDestroy);
     } else if (combo?.effect === 'cross') {
       const toDestroy = [];
       for (let i = 0; i < CONFIG.GRID_SIZE; i++) {
         toDestroy.push({ r: centerR, c: i, color: this.state.grid[centerR][i].color });
         toDestroy.push({ r: i, c: centerC, color: this.state.grid[i][centerC].color });
+      }
+      await this._destroyTiles(toDestroy);
+      for (let i = 0; i < CONFIG.GRID_SIZE; i++) {
         this.state.grid[centerR][i] = new Tile(centerR, i, Math.floor(Math.random() * CONFIG.COLORS));
         this.state.grid[i][centerC] = new Tile(i, centerC, Math.floor(Math.random() * CONFIG.COLORS));
       }
       this.state.score += combo.score;
-      await this._destroyTiles(toDestroy);
     } else {
       // Default: 5x5 explosion
       const toDestroy = [];
       for (let r = Math.max(0, centerR - 2); r <= Math.min(CONFIG.GRID_SIZE - 1, centerR + 2); r++) {
         for (let c = Math.max(0, centerC - 2); c <= Math.min(CONFIG.GRID_SIZE - 1, centerC + 2); c++) {
           toDestroy.push({ r, c, color: this.state.grid[r][c].color });
+        }
+      }
+      await this._destroyTiles(toDestroy);
+      for (let r = Math.max(0, centerR - 2); r <= Math.min(CONFIG.GRID_SIZE - 1, centerR + 2); r++) {
+        for (let c = Math.max(0, centerC - 2); c <= Math.min(CONFIG.GRID_SIZE - 1, centerC + 2); c++) {
           this.state.grid[r][c] = new Tile(r, c, Math.floor(Math.random() * CONFIG.COLORS));
         }
       }
       this.state.score += combo?.score || 600;
-      await this._destroyTiles(toDestroy);
     }
 
     this._emit('scoreChanged', this.state.score);
@@ -821,6 +843,48 @@ export class Match3Engine {
           (r <= GR - 3 && this.state.grid[r+1][c].color === color && this.state.grid[r+2][c].color === color)
         ));
         this.state.grid[r][c] = new Tile(r, c, color);
+      }
+    }
+  }
+
+  // Единственный источник истины: синхронизирует спрайты с state
+  _syncVisuals() {
+    const GR = CONFIG.GRID_SIZE;
+    const pad = this.renderer.padding;
+    const ts = this.renderer.tileSize;
+    const gap = this.renderer.gap;
+    const cellSize = ts + gap;
+    const existing = new Map();
+    for (const ch of [...this.renderer.boardContainer.children]) {
+      const c = Math.round((ch.x - pad) / cellSize);
+      const r = Math.round((ch.y - pad) / cellSize);
+      if (r >= 0 && r < GR && c >= 0 && c < GR) {
+        const key = `${r},${c}`;
+        if (!existing.has(key)) existing.set(key, ch);
+        else this.renderer.boardContainer.removeChild(ch);
+      } else {
+        this.renderer.boardContainer.removeChild(ch);
+      }
+    }
+    for (let r = 0; r < GR; r++) {
+      for (let c = 0; c < GR; c++) {
+        const t = this.state.grid[r][c];
+        const key = `${r},${c}`;
+        const isEmpty = (t.color === -1 && !t.special);
+        const sprite = existing.get(key);
+        if (isEmpty) {
+          if (sprite) this.renderer.boardContainer.removeChild(sprite);
+        } else {
+          if (sprite) {
+            const txt = sprite.children.find(ch => ch.text !== undefined);
+            if (txt) txt.text = t.special ? '\u2b50' : COLOR_DEFS[t.color]?.emoji || '';
+            t.visual = sprite;
+          } else {
+            const sp = this.renderer._createTileSprite(t);
+            this.renderer.boardContainer.addChild(sp);
+            t.visual = sp;
+          }
+        }
       }
     }
   }
