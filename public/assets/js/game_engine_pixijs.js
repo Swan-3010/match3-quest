@@ -564,6 +564,7 @@ export class Match3Engine {
               if (holes > 0) { console.warn('watchdog: filling', holes, 'holes'); this._fillStateHoles(); }
               this.repairSync();
             } catch (e) { console.error('watchdog heal:', e); }
+            }
           }
         } catch (e) { console.error('watchdog error', e); }
       }, 3000);
@@ -847,47 +848,6 @@ export class Match3Engine {
     }
   }
 
-  // Единственный источник истины: синхронизирует спрайты с state
-  _syncVisuals() {
-    const GR = CONFIG.GRID_SIZE;
-    const pad = this.renderer.padding;
-    const ts = this.renderer.tileSize;
-    const gap = this.renderer.gap;
-    const cellSize = ts + gap;
-    const existing = new Map();
-    for (const ch of [...this.renderer.boardContainer.children]) {
-      const c = Math.round((ch.x - pad) / cellSize);
-      const r = Math.round((ch.y - pad) / cellSize);
-      if (r >= 0 && r < GR && c >= 0 && c < GR) {
-        const key = `${r},${c}`;
-        if (!existing.has(key)) existing.set(key, ch);
-        else this.renderer.boardContainer.removeChild(ch);
-      } else {
-        this.renderer.boardContainer.removeChild(ch);
-      }
-    }
-    for (let r = 0; r < GR; r++) {
-      for (let c = 0; c < GR; c++) {
-        const t = this.state.grid[r][c];
-        const key = `${r},${c}`;
-        const isEmpty = (t.color === -1 && !t.special);
-        const sprite = existing.get(key);
-        if (isEmpty) {
-          if (sprite) this.renderer.boardContainer.removeChild(sprite);
-        } else {
-          if (sprite) {
-            const txt = sprite.children.find(ch => ch.text !== undefined);
-            if (txt) txt.text = t.special ? '\u2b50' : COLOR_DEFS[t.color]?.emoji || '';
-            t.visual = sprite;
-          } else {
-            const sp = this.renderer._createTileSprite(t);
-            this.renderer.boardContainer.addChild(sp);
-            t.visual = sp;
-          }
-        }
-      }
-    }
-  }
 
   // Сторожевой таймаут: не даём анимации зависнуть (фоновая вкладка, ошибка rAF)
   _raceTimeout(promise, ms = 800) {
