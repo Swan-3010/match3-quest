@@ -5,3 +5,6 @@
 /storage/logs/*.log
 /bootstrap/cache/*
 .DS_Store
+storage/framework/cache/
+storage/framework/views/
+public/assets/js/*.bak.*
