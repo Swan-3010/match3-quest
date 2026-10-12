@@ -3,7 +3,7 @@
  * SPA routing, screen management, game integration
  */
 
-import { Match3Engine } from './game_engine_pixijs.js?v=20261012b';
+import { Match3Engine } from './game_engine_pixijs.js?v=20261012c';
 
 class App {
   constructor() {
