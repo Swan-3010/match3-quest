@@ -572,7 +572,7 @@ export class Match3Engine {
     // Animate swap
     this.processing = true;
     try {
-      await new Promise(resolve => this.renderer.animateSwap(r1, c1, r2, c2, resolve));
+      await this._raceTimeout(new Promise(resolve => this.renderer.animateSwap(r1, c1, r2, c2, resolve)));
 
       // Logical swap
       this.state._swap(r1, c1, r2, c2);
@@ -585,7 +585,7 @@ export class Match3Engine {
         await this._processMatches();
       } else {
         // Swap back
-        await new Promise(resolve => this.renderer.animateSwap(r1, c1, r2, c2, resolve));
+        await this._raceTimeout(new Promise(resolve => this.renderer.animateSwap(r1, c1, r2, c2, resolve)));
         this.state._swap(r1, c1, r2, c2);
       }
     } finally {
@@ -652,7 +652,7 @@ export class Match3Engine {
   }
 
   async _destroyTiles(tiles) {
-    await new Promise(resolve => this.renderer.animateDestroy(tiles, resolve));
+    await this._raceTimeout(new Promise(resolve => this.renderer.animateDestroy(tiles, resolve)));
     for (const t of tiles) {
       this.state.grid[t.r][t.c] = new Tile(t.r, t.c, -1);
     }
@@ -694,7 +694,7 @@ export class Match3Engine {
         moves.push({ from: { r: -1, c }, to: { r, c }, vis: sprite }); // spawn animation
       }
     }
-    return new Promise(resolve => this.renderer.animateFall(moves, resolve));
+    return this._raceTimeout(new Promise(resolve => this.renderer.animateFall(moves, resolve)));
   }
 
   async _resolveCombo(sp1, sp2, r1, c1, r2, c2) {
@@ -756,36 +756,36 @@ export class Match3Engine {
     this.renderer.destroy();
   }
 
+  // Сторожевой таймаут: не даём анимации зависнуть (фоновая вкладка, ошибка rAF)
+  _raceTimeout(promise, ms = 2000) {
+    return Promise.race([
+      promise,
+      new Promise(resolve => setTimeout(() => {
+        console.warn('engine: animation timeout, force-continue');
+        resolve();
+      }, ms))
+    ]);
+  }
+
   _emit(event, ...data) {
     if (this.eventCallback) this.eventCallback(event, ...data);
   }
 
-  // Авто-лечение рассинхрона: пересоздаёт недостающие спрайты, удаляет сирот
+  // Авто-лечение рассинхрона: спрайт привязывается к ячейке по ФАКТИЧЕСКОЙ позиции
+  // (state._swap меняет только color/special, поэтому tile.visual ненадёжен — источник истины: координаты спрайта)
   repairSync() {
-    let fixed = 0;
+    // Полная перерисовка поля из state — единый источник истины.
+    // Убирает любые рассинхроны спрайтов/цветов после свайпов, каскадов и комбо.
+    this.renderer.boardContainer.removeChildren();
     for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
       for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
         const t = this.state.grid[r][c];
-        if (t.isEmpty()) continue;
-        if (!t.visual || t.visual.parent !== this.renderer.boardContainer) {
-          if (t.visual && t.visual.parent) t.visual.parent.removeChild(t.visual);
-          const sprite = this.renderer._createTileSprite(t);
-          t.visual = sprite;
-          this.renderer.boardContainer.addChild(sprite);
-          fixed++;
-        }
+        if (t.isEmpty()) { t.visual = null; continue; }
+        const sprite = this.renderer._createTileSprite(t);
+        t.visual = sprite;
+        this.renderer.boardContainer.addChild(sprite);
       }
     }
-    for (const child of [...this.renderer.boardContainer.children]) {
-      const tx = Math.round((child.x - this.renderer.padding) / (this.renderer.tileSize + this.renderer.gap));
-      const ty = Math.round((child.y - this.renderer.padding) / (this.renderer.tileSize + this.renderer.gap));
-      let keep = false;
-      if (ty >= 0 && ty < CONFIG.GRID_SIZE && tx >= 0 && tx < CONFIG.GRID_SIZE) {
-        keep = this.state.grid[ty][tx].visual === child;
-      }
-      if (!keep) { this.renderer.boardContainer.removeChild(child); fixed++; }
-    }
-    return fixed;
   }
 
   // Диагностика: сверка state.grid с визуальными спрайтами
