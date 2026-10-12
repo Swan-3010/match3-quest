@@ -204,6 +204,16 @@
   <div class="canvas-area">
     <div id="gameCanvasContainer"></div>
   </div>
+  <div class="bottom-nav" style="display:flex;justify-content:space-around;padding:12px;background:rgba(20,20,30,0.95);border-top:1px solid rgba(255,255,255,0.1);">
+    <button class="nav-item" onclick="app.goBack()" style="background:none;border:none;color:#a0a0b0;font-size:13px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <span style="font-size:20px;">🏠</span>
+      <span>Меню</span>
+    </button>
+    <button class="nav-item" onclick="app.showScreen('profile')" style="background:none;border:none;color:#a0a0b0;font-size:13px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <span style="font-size:20px;">👤</span>
+      <span>Профиль</span>
+    </button>
+  </div>
 </div>
 
 <!-- RESULT OVERLAY -->
