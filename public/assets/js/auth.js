@@ -50,7 +50,8 @@ class AuthManager {
       body: JSON.stringify({ email, password, password_confirmation: passwordConfirmation }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Ошибка регистрации');
+    console.log('register response:', res.status, data);
+    if (!res.ok) throw new Error(data.message || JSON.stringify(data.errors) || 'Ошибка регистрации');
     this.setToken(data.token, data.user);
     return data;
   }

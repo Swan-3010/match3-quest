@@ -271,14 +271,16 @@ class App {
     this.showLoading(true);
     try {
       const profile = await window.api.get('/user/profile');
-      document.getElementById('profName').textContent = profile.user.username || 'Игрок';
-      document.getElementById('profLevel').textContent = `Уровень ${profile.progress.player_level}`;
-      document.getElementById('profXp').textContent = `${profile.progress.current_xp} / ${profile.progress.xp_for_next_level} XP`;
-      document.getElementById('profLevels').textContent = profile.progress.max_level_reached;
-      document.getElementById('profScore').textContent = profile.progress.total_score.toLocaleString();
-      document.getElementById('profStars').textContent = profile.progress.total_stars;
+      const user = profile?.user || {};
+      const progress = profile?.progress || {};
+      document.getElementById('profName').textContent = user.username || 'Игрок';
+      document.getElementById('profLevel').textContent = `Уровень ${progress.player_level || 1}`;
+      document.getElementById('profXp').textContent = `${progress.current_xp || 0} / ${progress.xp_for_next_level || 5000} XP`;
+      document.getElementById('profLevels').textContent = progress.max_level_reached || 0;
+      document.getElementById('profScore').textContent = (progress.total_score || 0).toLocaleString();
+      document.getElementById('profStars').textContent = progress.total_stars || 0;
     } catch (e) {
-      this.showToast(e.message);
+      this.showToast(e.message || 'Ошибка загрузки профиля');
     } finally {
       this.showLoading(false);
     }
