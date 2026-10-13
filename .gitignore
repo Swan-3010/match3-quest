@@ -8,3 +8,5 @@
 storage/framework/cache/
 storage/framework/views/
 public/assets/js/*.bak.*
+/public/build/
+/public/hot
