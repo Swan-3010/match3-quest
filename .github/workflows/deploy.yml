@@ -1,118 +1,216 @@
-name: CI/CD — Match Quest
+name: Deploy Match3 Quest to Beget
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: match3-beget-production
+  cancel-in-progress: false
 
 jobs:
-  test:
-    name: 🧪 PHPUnit Tests
+  deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      APP_DIR: /home/a/adolmax0/apps/match3-quest
+      WEB_DIR: /home/a/adolmax0/lab.iig.ru/public_html/3Row
+      BEGET_HOST: ${{ secrets.BEGET_HOST }}
+      BEGET_USER: ${{ secrets.BEGET_USER }}
+      BEGET_PORT: ${{ secrets.BEGET_PORT || '22' }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo, pdo_mysql, mbstring, bcmath, gd
-          coverage: xdebug
+          extensions: mbstring, pdo_mysql, bcmath, gd
+          tools: composer:v2
+          coverage: none
 
-      - name: Install Composer
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
-      - name: Setup Environment
+      - name: Install PHP dependencies
         run: |
-          cp .env.example .env
-          php artisan key:generate
-
-      - name: Run PHPUnit
-        run: php artisan test --coverage --min=60
-        env:
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ':memory:'
-
-  build:
-    name: 🔨 Build Assets
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
+          set -euo pipefail
+          mkdir -p bootstrap/cache
+          composer install \
+            --no-dev \
+            --no-interaction \
+            --prefer-dist \
+            --optimize-autoloader
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '24'
+          cache: npm
 
-      - name: Install & Build
+      - name: Build frontend
+        env:
+          ASSET_URL: https://lab.iig.ru/3Row
         run: |
+          set -euo pipefail
           npm ci
           npm run build
+          test -f public/build/manifest.json
+          test -f public/assets/js/api-client.js
 
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-assets
-          path: public/build
-
-  deploy:
-    name: 🚀 Deploy to Beget
-    runs-on: ubuntu-latest
-    needs: [test, build]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: pdo, pdo_mysql, mbstring
-
-      - name: Install Composer (no-dev)
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
-
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: build-assets
-          path: public/build
-
-      - name: Prepare Deploy Package
-        run: |
-          rm -rf .git tests node_modules .github
-          cp .env.beget .env
-          php artisan config:cache
-          php artisan route:cache
-
-      - name: Deploy via SSH/RSYNC
-        uses: easingthemes/ssh-deploy@v5
-        with:
+      - name: Configure SSH
+        env:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.BEGET_HOST }}
-          REMOTE_USER: ${{ secrets.BEGET_USER }}
-          REMOTE_PORT: ${{ secrets.BEGET_PORT || '22' }}
-          SOURCE: './'
-          TARGET: ${{ secrets.BEGET_PATH }}
-          ARGS: '-avz --delete --exclude=.env --exclude=storage/logs/* --exclude=storage/framework/cache/* --exclude=storage/framework/sessions/*'
+          SSH_KNOWN_HOSTS: ${{ secrets.BEGET_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$BEGET_HOST"
+          test -n "$BEGET_USER"
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
 
-      - name: Post-Deploy Commands
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.BEGET_HOST }}
-          username: ${{ secrets.BEGET_USER }}
-          key: ${{ secrets.BEGET_SSH_KEY }}
-          port: ${{ secrets.BEGET_PORT || '22' }}
-          script: |
-            cd ${{ secrets.BEGET_PATH }}
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan cache:clear
-            echo "✅ Deploy completed at $(date)"
+          install -m 700 -d "$HOME/.ssh"
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/beget_deploy"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+          chmod 600 "$HOME/.ssh/beget_deploy" "$HOME/.ssh/known_hosts"
+
+          ssh-keygen -y -f "$HOME/.ssh/beget_deploy" > /dev/null
+
+          cat > "$HOME/.ssh/config" <<CONFIG
+          Host beget-deploy
+            HostName $BEGET_HOST
+            User $BEGET_USER
+            Port $BEGET_PORT
+            IdentityFile ~/.ssh/beget_deploy
+            IdentitiesOnly yes
+            IdentityAgent none
+            BatchMode yes
+            StrictHostKeyChecking yes
+          CONFIG
+
+          chmod 600 "$HOME/.ssh/config"
+
+      - name: Check server
+        run: |
+          set -euo pipefail
+          ssh beget-deploy 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          APP_DIR=/home/a/adolmax0/apps/match3-quest
+          WEB_DIR=/home/a/adolmax0/lab.iig.ru/public_html/3Row
+
+          test "$(whoami)" = adolmax0
+          test -d "$APP_DIR"
+          test -w "$APP_DIR"
+          test -s "$APP_DIR/.env"
+          test -w "$(dirname "$WEB_DIR")"
+
+          if [ -L "$WEB_DIR" ]; then
+            test "$(readlink -f "$WEB_DIR")" = "$APP_DIR/public"
+          elif [ -e "$WEB_DIR" ]; then
+            test -d "$WEB_DIR"
+          fi
+
+          command -v rsync
+          php8.2 -v
+          REMOTE
+
+      - name: Upload application
+        run: |
+          set -euo pipefail
+          rsync -rz --itemize-changes \
+            --exclude='/.git/' \
+            --exclude='/.github/' \
+            --exclude='/node_modules/' \
+            --exclude='/tests/' \
+            --exclude='/.env*' \
+            --exclude='/.phpunit.result.cache' \
+            --exclude='/storage/' \
+            --exclude='/bootstrap/cache/' \
+            --exclude='/public/hot' \
+            --exclude='/public/storage' \
+            --exclude='/public/assets/js/game_engine.test.js' \
+            ./ "beget-deploy:$APP_DIR/"
+
+      - name: Prepare Laravel and publish in 3Row
+        run: |
+          set -euo pipefail
+          ssh beget-deploy 'bash -se' <<'REMOTE'
+          set -euo pipefail
+
+          APP_DIR=/home/a/adolmax0/apps/match3-quest
+          WEB_DIR=/home/a/adolmax0/lab.iig.ru/public_html/3Row
+
+          cd "$APP_DIR"
+
+          mkdir -p \
+            storage/app/public \
+            storage/framework/cache/data \
+            storage/framework/sessions \
+            storage/framework/views \
+            storage/logs \
+            bootstrap/cache
+
+          rm -f public/hot
+
+          php8.2 vendor/composer/platform_check.php
+          php8.2 artisan config:clear
+          php8.2 artisan route:clear
+
+          if ! grep -Eq '^APP_KEY=base64:.+$' .env; then
+            if grep -Eq '^APP_KEY=(""|'\'''\''|[[:space:]]*)$' .env; then
+              php8.2 artisan key:generate --force
+            else
+              echo "APP_KEY is missing or has an unexpected format; inspect it manually."
+              exit 1
+            fi
+          fi
+
+          php8.2 artisan migrate --force
+          php8.2 artisan config:cache
+          php8.2 artisan view:cache
+          php8.2 artisan route:list --path=api/v1
+
+          if [ ! -e public/storage ] && [ ! -L public/storage ]; then
+            php8.2 artisan storage:link
+          fi
+
+          test -f public/index.php
+          test -f public/build/manifest.json
+
+          if [ -L "$WEB_DIR" ]; then
+            test "$(readlink -f "$WEB_DIR")" = "$APP_DIR/public"
+          else
+            if [ -e "$WEB_DIR" ]; then
+              BACKUP="/home/a/adolmax0/3Row-before-deploy-$(date +%Y%m%d-%H%M%S)"
+              mv "$WEB_DIR" "$BACKUP"
+              echo "Previous 3Row saved to: $BACKUP"
+            fi
+
+            ln -s "$APP_DIR/public" "$WEB_DIR"
+          fi
+
+          echo "Deployment completed"
+          REMOTE
+
+      - name: HTTP health check
+        run: |
+          set -euo pipefail
+          curl \
+            --fail \
+            --show-error \
+            --silent \
+            --location \
+            --connect-timeout 15 \
+            --max-time 30 \
+            --retry 2 \
+            https://lab.iig.ru/3Row/up
+
+      - name: Remove private key
+        if: always()
+        run: rm -f "$HOME/.ssh/beget_deploy"

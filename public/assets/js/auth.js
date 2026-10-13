@@ -76,5 +76,8 @@ window.auth = new AuthManager();
 
 // Auto-logout on 401
 window.addEventListener('auth:logout', () => {
-  window.location.href = '/login';
+  window.location.href = new URL(
+    'login',
+    document.querySelector('meta[name="app-base"]').content
+  ).href;
 });

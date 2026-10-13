@@ -5,7 +5,9 @@
 
 class ApiClient {
   constructor() {
-    this.base = window.API_BASE || '/api/v1';
+    this.base = window.API_BASE
+      || document.querySelector('meta[name="api-base"]')?.content
+      || '/3Row/api/v1';
     this.token = localStorage.getItem('mq_token');
     this.offlineQueue = [];
     this.isOnline = navigator.onLine;
