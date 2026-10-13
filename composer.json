@@ -5,7 +5,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "laravel/framework": "^11.0",
+        "laravel/framework": "^12.69",
         "laravel/sanctum": "^4.0"
     },
     "require-dev": {
@@ -38,6 +38,9 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "platform": {
+            "php": "8.2.33"
         }
     },
     "minimum-stability": "stable",

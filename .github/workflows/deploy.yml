@@ -46,6 +46,14 @@ jobs:
             --prefer-dist \
             --optimize-autoloader
 
+      - name: Check PHP platform and Laravel boot
+        run: |
+          set -euo pipefail
+          composer check-platform-reqs --no-dev
+          composer audit --locked --no-dev
+          php artisan --version
+          php artisan route:list --path=api/v1
+          php artisan route:list --path=up
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
