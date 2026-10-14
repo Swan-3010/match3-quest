@@ -49,16 +49,41 @@ class AuthManager {
     return data;
   }
 
-  async register(email, password, passwordConfirmation) {
+  async register(email, password, passwordConfirmation, secretQuestion = null, secretAnswer = null) {
+    const body = { email, password, password_confirmation: passwordConfirmation };
+    if (secretQuestion) body.secret_question = secretQuestion;
+    if (secretAnswer) body.secret_answer = secretAnswer;
     const res = await fetch(`${window.API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ email, password, password_confirmation: passwordConfirmation }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     console.log('register response:', res.status, data);
     if (!res.ok) throw new Error(data.message || JSON.stringify(data.errors) || 'Ошибка регистрации');
     this.setToken(data.token, data.user);
+    return data;
+  }
+
+  async recoverQuestion(email) {
+    const res = await fetch(`${window.API_BASE}/auth/recover-question`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Ошибка запроса');
+    return data;
+  }
+
+  async recoverReset(email, answer, password, passwordConfirmation) {
+    const res = await fetch(`${window.API_BASE}/auth/recover-reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ email, answer, password, password_confirmation: passwordConfirmation }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Ошибка смены пароля');
     return data;
   }
 

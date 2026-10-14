@@ -13,6 +13,8 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/auth/recover-question', [AuthController::class, 'recoverQuestion']);
+Route::post('/auth/recover-reset', [AuthController::class, 'recoverReset']);
 
 // Публичный: нужен до авторизации (экран логина, гостевой режим)
 Route::get('/config', [ConfigController::class, 'index']);
