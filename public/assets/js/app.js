@@ -353,10 +353,38 @@ class App {
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2500);
   }
+
+  async installPwa() {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      try {
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          const btn = document.getElementById('installBtn');
+          if (btn) btn.style.display = 'none';
+        }
+      } catch (e) { /* пользователь закрыл диалог */ }
+      deferredInstallPrompt = null;
+      return;
+    }
+    const isIos = /iP(hone|ad|od)/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    this.showToast(isIos
+      ? 'iPhone/iPad: Поделиться → «На экран Домой»'
+      : 'Меню браузера (⋮) → «Установить приложение»');
+  }
 }
 
 window.App = App;
 window.app = new App();
+
+// PWA install: ловим событие раньше всех (авто-подсказка Chrome гасится,
+// показываем свой вход в меню)
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
 
 // Init on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -366,4 +394,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // Auth event handlers
 window.addEventListener('auth:logout', () => {
   window.app.showScreen('auth');
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+  window.app.showToast('Приложение установлено!');
 });
