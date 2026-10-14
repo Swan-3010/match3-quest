@@ -56,6 +56,17 @@
   .game-stat .lbl { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.8px; }
   .game-stat .val { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .game-boosters { display: flex; gap: 6px; padding: 6px 14px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .help-btn { position: absolute; top: 8px; right: 8px; z-index: 10; padding: 6px 13px; font-size: 14px; font-weight: 700; border-radius: 50%; }
+  .help-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .help-overlay.open { display: flex; }
+  .help-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg, 16px); max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 20px; font-size: 13px; line-height: 1.55; color: var(--text-2); }
+  .help-modal h3 { color: var(--text-1, #fff); margin: 14px 0 6px; font-size: 15px; }
+  .help-modal h3:first-child { margin-top: 0; }
+  .help-modal ul { padding-left: 18px; margin: 4px 0; }
+  .help-modal li { margin-bottom: 3px; }
+  .help-modal table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+  .help-modal th, .help-modal td { border: 1px solid var(--border); padding: 4px 6px; text-align: left; }
+  .help-close { float: right; background: none; border: none; color: var(--text-3); font-size: 20px; cursor: pointer; line-height: 1; padding: 0 2px; }
   .game-boosters::-webkit-scrollbar { display: none; }
   .booster-chip { display: flex; flex-direction: column; align-items: center; gap: 1px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 8px; min-width: 44px; font-size: 10px; flex-shrink: 0; cursor: pointer; }
   .booster-chip:active { transform: scale(0.92); }
@@ -190,6 +201,7 @@
 <!-- SCREEN: GAME -->
 <div class="screen" id="screen-game">
   <button class="btn btn-secondary" onclick="app.goBack()" style="position:absolute;top:8px;left:8px;z-index:10;padding:6px 12px;font-size:13px;">← Меню</button>
+  <button class="btn btn-secondary help-btn" onclick="toggleHelp(true)" aria-label="Помощь">?</button>
   <div class="game-header">
     <div class="game-stat"><div class="lbl">Цель</div><div class="val" id="gameTarget">0</div></div>
     <div class="game-stat"><div class="lbl">Счёт</div><div class="val" id="gameScore" style="color:var(--gold)">0</div></div>
@@ -320,6 +332,10 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
+function toggleHelp(open) {
+  document.getElementById('helpOverlay').classList.toggle('open', open);
+}
+
 // Show/hide shared UI based on screen
 window.addEventListener('load', () => {
   const originalShowScreen = window.App.prototype.showScreen;
@@ -343,6 +359,42 @@ App.prototype.showScreen = function(name) {
 });
 </script>
 
+<div class="help-overlay" id="helpOverlay" onclick="if (event.target === this) toggleHelp(false)">
+  <div class="help-modal">
+    <button class="help-close" onclick="toggleHelp(false)" aria-label="Закрыть">✕</button>
+    <h3>Как играть</h3>
+    <ul>
+      <li>Поле 9×9. Свайпайте соседние фишки, чтобы собрать <b>3 и более</b> одинаковых в ряд.</li>
+      <li>Каждый свайп тратит <b>1 ход</b>. Наберите целевой счёт до конца ходов.</li>
+      <li>Линия не собралась — фишки вернутся на место.</li>
+    </ul>
+    <h3>Спецфишки (линия из 4–5)</h3>
+    <table>
+      <tr><th>Спецфишка</th><th>Как получить</th><th>Эффект</th></tr>
+      <tr><td>🚀 Ракета</td><td>4 в ряд</td><td>Чистит строку или столбец</td></tr>
+      <tr><td>💣 Бомба</td><td>5 в Г/Т-форме</td><td>Взрыв 3×3 (5×5 при комбо)</td></tr>
+      <tr><td>🪩 Диско</td><td>5 в ряд</td><td>Убирает все фишки цвета соседа</td></tr>
+    </table>
+    <p>Спецфишка активируется свайпом на соседнюю фишку и расходуется.</p>
+    <h3>Комбо — свайп двух спецфишек</h3>
+    <ul>
+      <li>🚀+🚀 — крест (строка + столбец), 800 очков</li>
+      <li>🚀+💣 — 3 линии, 1000 очков</li>
+      <li>💣+💣 — взрыв 7×7, 1200 очков</li>
+      <li>🪩+🚀 / 🪩+💣 — все фишки цвета превращаются в ракеты/бомбы, 1500 очков</li>
+      <li>🪩+🪩 — очистка всего поля, 5000 очков</li>
+    </ul>
+    <h3>Каскады</h3>
+    <p>После уничтожения сверху падают новые фишки. Каждый каскад умножает очки на +20% (макс. 12 подряд). Рубите внизу поля — больше падений, больше каскадов.</p>
+    <h3>Бустеры</h3>
+    <ul>
+      <li>🔨 Молот — уничтожает одну фишку</li>
+      <li>➡️/⬇️ Метеор — чистит строку/столбец</li>
+      <li>🔀 Shuffle — перемешать поле</li>
+    </ul>
+    <p>Бустеры покупаются за монеты в магазине. Жизни восстанавливаются: 1 жизнь за 3 часа, максимум 5.</p>
+  </div>
+</div>
 @endsection
 
 <script>
