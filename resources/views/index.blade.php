@@ -220,6 +220,14 @@
     <button class="btn btn-secondary menu-btn" onclick="app.showScreen('profile'); app.loadProfile();">
       <span class="icon">👤</span> Профиль
     </button>
+    <div class="menu-btn-row">
+      <button class="btn btn-secondary menu-btn" onclick="toggleHelp(true)">
+        <span class="icon">❓</span> Помощь
+      </button>
+      <button class="btn btn-secondary menu-btn" id="installBtn" onclick="app.installPwa()">
+        <span class="icon">📲</span> Установить
+      </button>
+    </div>
   </div>
 </div>
 
