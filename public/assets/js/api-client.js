@@ -44,11 +44,15 @@ class ApiClient {
       if (res.status === 304) return { unchanged: true };
 
       if (res.status === 401) {
-        // Token expired — try refresh or logout
-        this.token = null;
-        localStorage.removeItem('mq_token');
-        window.dispatchEvent(new CustomEvent('auth:logout'));
-        throw new Error('Сессия истекла');
+        if (this.token) {
+          // Token present but rejected — session expired or revoked
+          this.token = null;
+          localStorage.removeItem('mq_token');
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+          throw new Error('Сессия истекла');
+        }
+        // Guest request to a protected route — no logout redirect
+        throw new Error('Требуется авторизация');
       }
 
       const json = await res.json();

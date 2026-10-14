@@ -117,8 +117,8 @@
 window.API_BASE = document.querySelector('meta[name="api-base"]').content;
 window.CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 </script>
-<script src="{{ asset('assets/js/auth.js?v=20261012b') }}"></script>
-<script src="{{ asset('assets/js/api-client.js?v=20261012b') }}"></script>
+<script src="{{ asset('assets/js/auth.js?v=20261013a') }}"></script>
+<script src="{{ asset('assets/js/api-client.js?v=20261013a') }}"></script>
 <script type="module" src="{{ asset('assets/js/app.js?v=20261012b') }}"></script>
 @stack('scripts')
 </body>
