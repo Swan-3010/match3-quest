@@ -1,41 +1,52 @@
 <?php
 namespace Tests\Unit\Services;
 
-use App\Services\User\LifeRegenService;
+use App\Models\User;
 use App\Models\UserProgress;
-use PHPUnit\Framework\TestCase;
+use App\Services\User\LifeRegenService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class LifeRegenServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
+    private function makeProgress(int $lives, int $regenAgoHours): UserProgress
+    {
+        $user = User::factory()->create();
+        return UserProgress::create([
+            'user_id' => $user->id,
+            'lives' => $lives,
+            'coins' => 500,
+            'last_life_regen_at' => now()->subHours($regenAgoHours),
+        ]);
+    }
+
     public function test_no_regen_when_max_lives(): void
     {
-        $progress = new UserProgress(['lives' => 5, 'last_life_regen_at' => now()->subHours(6)]);
-        $service = new LifeRegenService();
-        $service->regenerate($progress);
-        $this->assertEquals(5, $progress->lives);
+        $progress = $this->makeProgress(5, 6);
+        (new LifeRegenService())->regenerate($progress);
+        $this->assertEquals(5, $progress->refresh()->lives);
     }
 
     public function test_regen_one_life_after_3_hours(): void
     {
-        $progress = new UserProgress(['lives' => 3, 'last_life_regen_at' => now()->subHours(3)]);
-        $service = new LifeRegenService();
-        $service->regenerate($progress);
-        $this->assertEquals(4, $progress->lives);
+        $progress = $this->makeProgress(3, 3);
+        (new LifeRegenService())->regenerate($progress);
+        $this->assertEquals(4, $progress->refresh()->lives);
     }
 
     public function test_regen_multiple_lives(): void
     {
-        $progress = new UserProgress(['lives' => 1, 'last_life_regen_at' => now()->subHours(9)]);
-        $service = new LifeRegenService();
-        $service->regenerate($progress);
-        $this->assertEquals(4, $progress->lives); // 1 + 3 (9/3), capped at 5
+        $progress = $this->makeProgress(1, 9);
+        (new LifeRegenService())->regenerate($progress);
+        $this->assertEquals(4, $progress->refresh()->lives); // 1 + 3 (9/3), capped at 5
     }
 
     public function test_capped_at_max(): void
     {
-        $progress = new UserProgress(['lives' => 4, 'last_life_regen_at' => now()->subHours(9)]);
-        $service = new LifeRegenService();
-        $service->regenerate($progress);
-        $this->assertEquals(5, $progress->lives);
+        $progress = $this->makeProgress(4, 9);
+        (new LifeRegenService())->regenerate($progress);
+        $this->assertEquals(5, $progress->refresh()->lives);
     }
 }

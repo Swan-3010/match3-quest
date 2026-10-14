@@ -18,7 +18,7 @@ class DailyRewardTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson('/api/daily/status');
+            ->getJson('/api/v1/daily/status');
         $res->assertStatus(200)
             ->assertJson(['can_claim_today' => true, 'current_streak' => 0]);
     }
@@ -27,10 +27,11 @@ class DailyRewardTest extends TestCase
     {
         $user = User::factory()->create();
         UserProgress::create(['user_id' => $user->id, 'lives' => 5, 'coins' => 500, 'login_streak' => 2]);
+        DailyRewardClaim::create(['user_id' => $user->id, 'day_number' => 2, 'claim_date' => now()->subDay()]);
         $token = $user->createToken('test')->plainTextToken;
 
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/daily/claim');
+            ->postJson('/api/v1/daily/claim');
         $res->assertStatus(200)
             ->assertJson(['new_streak' => 3]);
         $this->assertDatabaseHas('daily_reward_claims', ['user_id' => $user->id]);
@@ -44,7 +45,7 @@ class DailyRewardTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/daily/claim');
+            ->postJson('/api/v1/daily/claim');
         $res->assertStatus(429);
     }
 }

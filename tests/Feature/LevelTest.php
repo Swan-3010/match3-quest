@@ -22,9 +22,9 @@ class LevelTest extends TestCase
         $user = User::factory()->create();
         $token = $user->createToken('test')->plainTextToken;
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson('/api/levels');
+            ->getJson('/api/v1/levels');
         $res->assertStatus(200)
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(1);
     }
 
     public function test_start_level(): void
@@ -33,7 +33,7 @@ class LevelTest extends TestCase
         UserProgress::create(['user_id' => $user->id, 'lives' => 5, 'coins' => 500]);
         $token = $user->createToken('test')->plainTextToken;
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/levels/1/start');
+            ->postJson('/api/v1/levels/1/start');
         $res->assertStatus(200)
             ->assertJsonStructure(['session_id', 'level', 'board_seed']);
     }
@@ -45,7 +45,7 @@ class LevelTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/levels/1/complete', [
+            ->postJson('/api/v1/levels/1/complete', [
                 'session_id' => 'test-session-123',
                 'score' => 2000,
                 'moves_used' => 20,
@@ -66,7 +66,7 @@ class LevelTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/levels/1/complete', [
+            ->postJson('/api/v1/levels/1/complete', [
                 'session_id' => 'test-session-456',
                 'score' => 500,
                 'moves_used' => 23,
@@ -87,7 +87,7 @@ class LevelTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/levels/1/complete', [
+            ->postJson('/api/v1/levels/1/complete', [
                 'session_id' => 'test-session-789',
                 'score' => 999999999,
                 'moves_used' => 1,

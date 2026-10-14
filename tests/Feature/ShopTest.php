@@ -22,7 +22,7 @@ class ShopTest extends TestCase
         $user = User::factory()->create();
         $token = $user->createToken('test')->plainTextToken;
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson('/api/shop/items');
+            ->getJson('/api/v1/shop/items');
         $res->assertStatus(200)
             ->assertJsonCount(1);
     }
@@ -34,7 +34,7 @@ class ShopTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/shop/purchase', [
+            ->postJson('/api/v1/shop/purchase', [
                 'item_code' => 'hammer',
                 'quantity' => 1,
                 'currency' => 'coins',
@@ -52,7 +52,7 @@ class ShopTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/shop/purchase', [
+            ->postJson('/api/v1/shop/purchase', [
                 'item_code' => 'hammer',
                 'quantity' => 1,
                 'currency' => 'coins',
