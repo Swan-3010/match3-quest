@@ -18,7 +18,7 @@ class LifeRegenService
             return;
         }
 
-        $minutesSince = now()->diffInMinutes($progress->last_life_regen_at);
+        $minutesSince = $progress->last_life_regen_at->diffInMinutes(now());
         $livesToAdd = intdiv($minutesSince, self::REGEN_MINUTES);
 
         if ($livesToAdd > 0) {

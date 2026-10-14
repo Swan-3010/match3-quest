@@ -11,7 +11,7 @@ class AuthTest extends TestCase
 
     public function test_register_success(): void
     {
-        $res = $this->postJson('/api/auth/register', [
+        $res = $this->postJson('/api/v1/auth/register', [
             'email' => 'test@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -24,7 +24,7 @@ class AuthTest extends TestCase
 
     public function test_register_validation_fail(): void
     {
-        $res = $this->postJson('/api/auth/register', [
+        $res = $this->postJson('/api/v1/auth/register', [
             'email' => 'invalid',
             'password' => 'short',
         ]);
@@ -37,7 +37,7 @@ class AuthTest extends TestCase
             'email' => 'login@test.com',
             'password_hash' => bcrypt('secret123'),
         ]);
-        $res = $this->postJson('/api/auth/login', [
+        $res = $this->postJson('/api/v1/auth/login', [
             'email' => 'login@test.com',
             'password' => 'secret123',
         ]);
@@ -51,7 +51,7 @@ class AuthTest extends TestCase
             'email' => 'wrong@test.com',
             'password_hash' => bcrypt('correct'),
         ]);
-        $res = $this->postJson('/api/auth/login', [
+        $res = $this->postJson('/api/v1/auth/login', [
             'email' => 'wrong@test.com',
             'password' => 'incorrect',
         ]);
@@ -63,13 +63,13 @@ class AuthTest extends TestCase
         $user = User::factory()->create();
         $token = $user->createToken('test')->plainTextToken;
         $res = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/auth/logout');
+            ->postJson('/api/v1/auth/logout');
         $res->assertStatus(204);
     }
 
     public function test_protected_route_without_token(): void
     {
-        $res = $this->getJson('/api/user/profile');
+        $res = $this->getJson('/api/v1/user/profile');
         $res->assertStatus(401);
     }
 }
