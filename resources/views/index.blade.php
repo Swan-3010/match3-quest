@@ -99,6 +99,7 @@
   .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 6px; text-align: center; }
   .stat-box .num { font-size: 18px; font-weight: 700; }
   .stat-box .lbl { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+  .logout-btn { margin: 8px 16px 0; width: calc(100% - 32px); }
 
   /* DAILY */
   .daily-screen { padding: 24px 20px; text-align: center; }
@@ -255,6 +256,7 @@
     <div class="stat-box"><div class="num" id="profScore">0</div><div class="lbl">Очков</div></div>
     <div class="stat-box"><div class="num" id="profStars">0</div><div class="lbl">Звёзд</div></div>
   </div>
+  <button class="btn btn-secondary logout-btn" onclick="window.auth.logout()">Выйти из аккаунта</button>
 </div>
 
 <!-- SCREEN: DAILY -->
