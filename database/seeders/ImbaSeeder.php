@@ -15,7 +15,10 @@ class ImbaSeeder extends Seeder
             ['cross_diag', 'Крест-диагональ', 'Запас ходов ≥30%', ['clear' => 'diag'], 120, null],
         ];
         foreach ($imbas as $i) {
-            Imba::create(['code' => $i[0], 'name' => $i[1], 'unlock_condition' => $i[2], 'effect_json' => $i[3], 'base_price_coins' => $i[4], 'base_price_gems' => $i[5]]);
+            Imba::updateOrCreate(
+                ['code' => $i[0]],
+                ['name' => $i[1], 'unlock_condition' => $i[2], 'effect_json' => $i[3], 'base_price_coins' => $i[4], 'base_price_gems' => $i[5]]
+            );
         }
     }
 }

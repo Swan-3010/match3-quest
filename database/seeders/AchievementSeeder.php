@@ -16,7 +16,10 @@ class AchievementSeeder extends Seeder
             ['star_collector', 'Звёздочёт', '100 звёзд', 'stars_total', 100, 'coins', 1000, '⭐'],
         ];
         foreach ($achs as $a) {
-            Achievement::create(['code' => $a[0], 'name' => $a[1], 'description' => $a[2], 'condition_type' => $a[3], 'condition_value' => $a[4], 'reward_type' => $a[5], 'reward_qty' => $a[6], 'icon' => $a[7]]);
+            Achievement::updateOrCreate(
+                ['code' => $a[0]],
+                ['name' => $a[1], 'description' => $a[2], 'condition_type' => $a[3], 'condition_value' => $a[4], 'reward_type' => $a[5], 'reward_qty' => $a[6], 'icon' => $a[7]]
+            );
         }
     }
 }
