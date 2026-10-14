@@ -8,7 +8,7 @@ class ApiClient {
     this.base = window.API_BASE
       || document.querySelector('meta[name="api-base"]')?.content
       || '/3Row/api/v1';
-    this.token = localStorage.getItem('mq_token');
+    this.token = localStorage.getItem('mq_token') || sessionStorage.getItem('mq_token');
     this.offlineQueue = [];
     this.isOnline = navigator.onLine;
     window.addEventListener('online', () => this.flushOfflineQueue());
@@ -48,6 +48,7 @@ class ApiClient {
           // Token present but rejected — session expired or revoked
           this.token = null;
           localStorage.removeItem('mq_token');
+          sessionStorage.removeItem('mq_token');
           window.dispatchEvent(new CustomEvent('auth:logout'));
           throw new Error('Сессия истекла');
         }

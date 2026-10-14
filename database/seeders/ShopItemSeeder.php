@@ -18,7 +18,10 @@ class ShopItemSeeder extends Seeder
             ['start_bomb', 'Старт-бомба', 'boost', 200, null, 'pre_level', ['spawn' => 'bomb']],
         ];
         foreach ($items as $i) {
-            ShopItem::create(['code' => $i[0], 'name' => $i[1], 'category' => $i[2], 'price_coins' => $i[3], 'price_gems' => $i[4], 'context' => $i[5], 'effect_json' => $i[6]]);
+            ShopItem::updateOrCreate(
+                ['code' => $i[0]],
+                ['name' => $i[1], 'category' => $i[2], 'price_coins' => $i[3], 'price_gems' => $i[4], 'context' => $i[5], 'effect_json' => $i[6]]
+            );
         }
     }
 }

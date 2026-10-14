@@ -10,13 +10,17 @@ class AuthManager {
     this.isGuest = !this.token;
   }
 
-  setToken(token, user = null) {
+  setToken(token, user = null, remember = true) {
     this.token = token;
     this.isGuest = false;
-    localStorage.setItem('mq_token', token);
+    const store = remember ? localStorage : sessionStorage;
+    const other = remember ? sessionStorage : localStorage;
+    store.setItem('mq_token', token);
+    other.removeItem('mq_token');
     if (user) {
       this.user = user;
-      localStorage.setItem('mq_user', JSON.stringify(user));
+      store.setItem('mq_user', JSON.stringify(user));
+      other.removeItem('mq_user');
     }
     if (window.api) window.api.token = token;
   }
@@ -25,21 +29,23 @@ class AuthManager {
     this.token = null;
     this.user = null;
     this.isGuest = true;
-    localStorage.removeItem('mq_token');
-    localStorage.removeItem('mq_user');
+    for (const s of [localStorage, sessionStorage]) {
+      s.removeItem('mq_token');
+      s.removeItem('mq_user');
+    }
     localStorage.removeItem('mq_config');
     if (window.api) window.api.token = null;
   }
 
-  async login(email, password) {
+  async login(email, password, remember = true) {
     const res = await fetch(`${window.API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, remember }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Ошибка входа');
-    this.setToken(data.token, data.user);
+    this.setToken(data.token, data.user, remember);
     return data;
   }
 
