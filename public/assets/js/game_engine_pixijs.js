@@ -848,6 +848,8 @@ export class Match3Engine {
           }
         }
       }
+      // DISCO сам не входит в цветовую выборку (color = -1) — удаляем явно
+      toDestroy.push({ r, c, color: this.state.grid[r][c].color });
     }
 
     await this._destroyTiles(toDestroy);
