@@ -17,6 +17,8 @@
   .input-group { display: flex; flex-direction: column; gap: 6px; }
   .input-group label { font-size: 13px; color: var(--text-2); font-weight: 500; }
   .auth-links { display: flex; justify-content: space-between; font-size: 13px; }
+  .remember-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
+  .remember-row input { width: 16px; height: 16px; accent-color: var(--accent); }
   .auth-links a { color: var(--accent); text-decoration: none; }
   .auth-divider { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 12px; margin: 8px 0; }
   .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
@@ -154,6 +156,7 @@
     <label>Повторите пароль</label>
     <input type="password" class="input-field" id="authPasswordConfirm" placeholder="••••••••">
   </div>
+  <label class="remember-row" id="rememberRow"><input type="checkbox" id="authRemember" checked> Запомнить меня на 30 дней</label>
   <button class="btn btn-primary" id="authMainBtn" onclick="handleLogin()">Войти</button>
   <div class="auth-links">
     <a href="#" onclick="showToast('Форма восстановления')">Забыли пароль?</a>
@@ -301,8 +304,9 @@
 async function handleLogin() {
   const email = document.getElementById('authEmail').value;
   const password = document.getElementById('authPassword').value;
+  const remember = document.getElementById('authRemember').checked;
   try {
-    await window.auth.login(email, password);
+    await window.auth.login(email, password, remember);
     window.app.init();
   } catch (e) {
     showToast(e.message);
@@ -404,15 +408,18 @@ let authMode = 'login';
 function toggleAuthMode() {
   authMode = authMode === 'login' ? 'register' : 'login';
   const confirmGroup = document.getElementById('confirmGroup');
+  const rememberRow = document.getElementById('rememberRow');
   const mainBtn = document.getElementById('authMainBtn');
   const toggleBtn = document.getElementById('authToggleBtn');
   if (authMode === 'register') {
     confirmGroup.style.display = 'block';
+    rememberRow.style.display = 'none';
     mainBtn.textContent = 'Создать аккаунт';
     mainBtn.setAttribute('onclick', 'handleRegister()');
     toggleBtn.textContent = 'Уже есть аккаунт? Войти';
   } else {
     confirmGroup.style.display = 'none';
+    rememberRow.style.display = 'flex';
     mainBtn.textContent = 'Войти';
     mainBtn.setAttribute('onclick', 'handleLogin()');
     toggleBtn.textContent = 'Создать аккаунт';

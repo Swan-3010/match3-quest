@@ -44,6 +44,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'remember' => 'nullable|boolean',
         ]);
 
         $user = User::where('email', $data['email'])->first();
@@ -51,12 +52,11 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => 'Неверные credentials']);
         }
 
-        $token = $user->createToken('auth')->plainTextToken;
-        $refreshToken = Str::random(64);
+        $expiresAt = $request->boolean('remember') ? now()->addDays(30) : now()->addHours(12);
+        $token = $user->createToken('auth', ['*'], $expiresAt)->plainTextToken;
 
         return response()->json([
             'token' => $token,
-            'refresh_token' => $refreshToken,
             'user' => $user,
         ]);
     }
