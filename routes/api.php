@@ -14,6 +14,9 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
+// Публичный: нужен до авторизации (экран логина, гостевой режим)
+Route::get('/config', [ConfigController::class, 'index']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
@@ -29,8 +32,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/shop/items', [ShopController::class, 'items']);
     Route::post('/shop/purchase', [ShopController::class, 'purchase']);
-
-    Route::get('/config', [ConfigController::class, 'index']);
 
     Route::get('/daily/status', [DailyController::class, 'status']);
     Route::post('/daily/claim', [DailyController::class, 'claim']);
