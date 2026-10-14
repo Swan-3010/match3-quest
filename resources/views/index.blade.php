@@ -142,9 +142,35 @@
     <label>Повторите пароль</label>
     <input type="password" class="input-field" id="authPasswordConfirm" placeholder="••••••••">
   </div>
+  <div class="input-group" id="secretGroup" style="display:none;">
+    <label>Секретный вопрос (для восстановления пароля)</label>
+    <input class="input-field" id="authSecretQuestion" placeholder="Например: кличка первого питомца">
+  </div>
+  <div class="input-group" id="secretAnswerGroup" style="display:none;">
+    <label>Ответ на секретный вопрос</label>
+    <input class="input-field" id="authSecretAnswer" placeholder="Запомнится только его хэш">
+  </div>
+  <div id="recoverPanel" style="display:none;">
+    <div class="input-group">
+      <label>Email аккаунта</label>
+      <input type="email" class="input-field" id="recEmail" placeholder="player@example.com">
+    </div>
+    <div id="recStep1">
+      <button class="btn btn-secondary" style="width:100%; margin-top:8px;" onclick="handleRecoverQuestion()">Показать секретный вопрос</button>
+    </div>
+    <div id="recStep2" style="display:none;">
+      <div class="input-group"><label id="recQuestionLabel">Вопрос</label><input class="input-field" id="recAnswer"></div>
+      <div class="input-group"><label>Новый пароль</label><input type="password" class="input-field" id="recPassword" placeholder="Минимум 8 символов"></div>
+      <div class="input-group"><label>Повторите новый пароль</label><input type="password" class="input-field" id="recPasswordConfirm"></div>
+      <button class="btn btn-primary" style="width:100%; margin-top:8px;" onclick="handleRecoverReset()">Сменить пароль</button>
+    </div>
+    <div class="auth-links" style="margin-top:12px;">
+      <a href="#" onclick="toggleRecover(false); return false;">← Назад ко входу</a>
+    </div>
+  </div>
   <button class="btn btn-primary" id="authMainBtn" onclick="handleLogin()">Войти</button>
   <div class="auth-links">
-    <a href="#" onclick="showToast('Форма восстановления')">Забыли пароль?</a>
+    <a href="#" onclick="toggleRecover(true); return false;">Забыли пароль?</a>
     <a href="#" onclick="handleGuest()">Играть без регистрации</a>
   </div>
   <div class="auth-divider">или</div>
@@ -298,9 +324,51 @@ async function handleLogin() {
 async function handleRegister() {
   const email = document.getElementById('authEmail').value;
   const password = document.getElementById('authPassword').value;
+  const passwordConfirm = document.getElementById('authPasswordConfirm').value;
+  const secretQuestion = document.getElementById('authSecretQuestion').value.trim();
+  const secretAnswer = document.getElementById('authSecretAnswer').value.trim();
   try {
-    await window.auth.register(email, password, password);
+    await window.auth.register(email, password, passwordConfirm, secretQuestion, secretAnswer);
     window.app.init();
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+
+function toggleRecover(open) {
+  document.getElementById('recoverPanel').style.display = open ? 'block' : 'none';
+  document.getElementById('authMainBtn').style.display = open ? 'none' : 'block';
+  document.getElementById('authToggleBtn').style.display = open ? 'none' : 'block';
+  const rr = document.getElementById('rememberRow');
+  if (rr) rr.style.display = 'none';
+  if (!open) {
+    document.getElementById('recStep1').style.display = 'block';
+    document.getElementById('recStep2').style.display = 'none';
+    if (rr && authMode === 'login') rr.style.display = 'flex';
+  }
+}
+
+async function handleRecoverQuestion() {
+  const email = document.getElementById('recEmail').value.trim();
+  try {
+    const data = await window.auth.recoverQuestion(email);
+    document.getElementById('recQuestionLabel').textContent = data.question;
+    document.getElementById('recStep1').style.display = 'none';
+    document.getElementById('recStep2').style.display = 'block';
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+
+async function handleRecoverReset() {
+  const email = document.getElementById('recEmail').value.trim();
+  const answer = document.getElementById('recAnswer').value;
+  const password = document.getElementById('recPassword').value;
+  const passwordConfirm = document.getElementById('recPasswordConfirm').value;
+  try {
+    await window.auth.recoverReset(email, answer, password, passwordConfirm);
+    showToast('Пароль изменён. Войдите с новым паролем.');
+    toggleRecover(false);
   } catch (e) {
     showToast(e.message);
   }
@@ -350,15 +418,21 @@ let authMode = 'login';
 function toggleAuthMode() {
   authMode = authMode === 'login' ? 'register' : 'login';
   const confirmGroup = document.getElementById('confirmGroup');
+  const secretGroup = document.getElementById('secretGroup');
+  const secretAnswerGroup = document.getElementById('secretAnswerGroup');
   const mainBtn = document.getElementById('authMainBtn');
   const toggleBtn = document.getElementById('authToggleBtn');
   if (authMode === 'register') {
     confirmGroup.style.display = 'block';
+    secretGroup.style.display = 'block';
+    secretAnswerGroup.style.display = 'block';
     mainBtn.textContent = 'Создать аккаунт';
     mainBtn.setAttribute('onclick', 'handleRegister()');
     toggleBtn.textContent = 'Уже есть аккаунт? Войти';
   } else {
     confirmGroup.style.display = 'none';
+    secretGroup.style.display = 'none';
+    secretAnswerGroup.style.display = 'none';
     mainBtn.textContent = 'Войти';
     mainBtn.setAttribute('onclick', 'handleLogin()');
     toggleBtn.textContent = 'Создать аккаунт';

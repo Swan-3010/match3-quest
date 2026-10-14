@@ -12,8 +12,8 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, SoftDeletes;
 
-    protected $fillable = ['email', 'password_hash', 'username', 'avatar_emoji', 'email_verified_at'];
-    protected $hidden = ['password_hash'];
+    protected $fillable = ['email', 'password_hash', 'username', 'avatar_emoji', 'email_verified_at', 'secret_question', 'secret_answer_hash'];
+    protected $hidden = ['password_hash', 'secret_answer_hash'];
     protected $casts = ['email_verified_at' => 'datetime'];
 
     public function progress(): HasOne { return $this->hasOne(UserProgress::class); }
