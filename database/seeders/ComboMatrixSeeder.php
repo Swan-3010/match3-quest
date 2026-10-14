@@ -18,7 +18,10 @@ class ComboMatrixSeeder extends Seeder
             ['DISCO', 'DISCO', ['effect' => 'clearAll', 'score' => 5000]],
         ];
         foreach ($combos as $c) {
-            ComboMatrix::create(['special_a' => $c[0], 'special_b' => $c[1], 'resulting_effect_json' => $c[2]]);
+            ComboMatrix::updateOrCreate(
+                ['special_a' => $c[0], 'special_b' => $c[1]],
+                ['resulting_effect_json' => $c[2]]
+            );
         }
     }
 }

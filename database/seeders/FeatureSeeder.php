@@ -16,7 +16,10 @@ class FeatureSeeder extends Seeder
             [160, 'stone', 'Камень', 'Препятствие', ['hp' => 2], '5%'],
         ];
         foreach ($features as $f) {
-            Feature::create(['unlock_level' => $f[0], 'code' => $f[1], 'name' => $f[2], 'unlock_condition' => $f[3], 'effect_json' => $f[4], 'board_impact' => $f[5]]);
+            Feature::updateOrCreate(
+                ['code' => $f[1]],
+                ['unlock_level' => $f[0], 'name' => $f[2], 'unlock_condition' => $f[3], 'effect_json' => $f[4], 'board_impact' => $f[5]]
+            );
         }
     }
 }
