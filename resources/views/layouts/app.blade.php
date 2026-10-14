@@ -89,6 +89,7 @@
 @stack('styles')
 
 <link rel="manifest" href="{{ asset('manifest.json') }}">
+<link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
 <meta name="theme-color" content="#6366f1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
