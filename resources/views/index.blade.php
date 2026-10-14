@@ -9,7 +9,7 @@
   .screen.active { display: block; }
 
   /* AUTH */
-  .auth-screen { display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 40px 24px; min-height: 100vh; }
+  .auth-screen.active { display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 40px 24px; min-height: 100vh; }
   .auth-logo { text-align: center; margin-bottom: 20px; }
   .auth-logo .icon { font-size: 48px; margin-bottom: 12px; display: block; }
   .auth-logo h2 { font-size: 22px; font-weight: 700; }
