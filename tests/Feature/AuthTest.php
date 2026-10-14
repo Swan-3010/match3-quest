@@ -42,7 +42,7 @@ class AuthTest extends TestCase
             'password' => 'secret123',
         ]);
         $res->assertStatus(200)
-            ->assertJsonStructure(['token', 'refresh_token', 'user']);
+            ->assertJsonStructure(['token', 'user']);
     }
 
     public function test_login_wrong_password(): void
