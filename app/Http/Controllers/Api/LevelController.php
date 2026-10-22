@@ -5,8 +5,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Level;
 use App\Models\SessionLog;
 use App\Services\Game\AntiCheatService;
+use App\Services\Game\LevelGeneratorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class LevelController extends Controller
@@ -29,20 +31,71 @@ class LevelController extends Controller
 
     public function start(Request $request, $id)
     {
-        $level = Level::findOrFail($id);
+        $number = (int) $id;
+        $level = Level::where('level_number', $number)->first()
+            ?? app(LevelGeneratorService::class)->generate($number);
         $sessionId = Str::uuid()->toString();
 
         // Store session in cache for 1 hour
         Cache::put("game_session.{$sessionId}", [
             'user_id' => $request->user()->id,
-            'level_id' => $id,
+            'level_id' => $level->id,
             'started_at' => now(),
         ], 3600);
 
         return response()->json([
             'session_id' => $sessionId,
             'level' => $level,
-            'board_seed' => random_int(1, 999999),
+            'board_seed' => app(LevelGeneratorService::class)->boardSeed($number),
+        ]);
+    }
+
+    public function mapWindow(Request $request)
+    {
+        $user = $request->user();
+        $reached = (int) ($user->progress->max_level_reached ?? 1);
+
+        // current — первый непройденный: если уровень `reached` пройден, текущий = reached + 1
+        $reachedCompleted = DB::table('sessions_log')
+            ->join('levels', 'levels.id', '=', 'sessions_log.level_id')
+            ->where('sessions_log.user_id', $user->id)
+            ->where('sessions_log.result', 'win')
+            ->where('levels.level_number', $reached)
+            ->exists();
+        $current = $reachedCompleted ? $reached + 1 : $reached;
+
+        if ($current <= 5) {
+            $from = 1;
+            $to = 20;
+        } else {
+            $from = max(1, $current - 14);
+            $to = $current + 5;
+        }
+
+        $stars = DB::table('sessions_log')
+            ->join('levels', 'levels.id', '=', 'sessions_log.level_id')
+            ->where('sessions_log.user_id', $user->id)
+            ->where('sessions_log.result', 'win')
+            ->whereBetween('levels.level_number', [$from, $current - 1])
+            ->groupBy('levels.level_number')
+            ->selectRaw('levels.level_number, MAX(sessions_log.stars_earned) as stars')
+            ->pluck('stars', 'levels.level_number');
+
+        $levels = [];
+        for ($n = $from; $n <= $to; $n++) {
+            $status = $n < $current ? 'done' : ($n === $current ? 'current' : 'locked');
+            $levels[] = [
+                'number' => $n,
+                'status' => $status,
+                'stars' => $status === 'done' ? (int) ($stars[$n] ?? 0) : 0,
+            ];
+        }
+
+        return response()->json([
+            'current' => $current,
+            'from' => $from,
+            'to' => $to,
+            'levels' => $levels,
         ]);
     }
 

@@ -35,12 +35,6 @@ class App {
     this.showScreen('menu');
   }
 
-  maxLevelReached() {
-    const p = this.userProgress;
-    if (!p) return 0;
-    return p.max_level_reached ?? p.progress?.max_level_reached ?? 0;
-  }
-
   showScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const screen = document.getElementById(`screen-${name}`);
@@ -48,7 +42,7 @@ class App {
       screen.classList.add('active');
       this.currentScreen = name;
     }
-    if (name === 'map') this.renderMap(this.maxLevelReached());
+    if (name === 'map') this.loadMapWindow();
     this.updateNav(name);
   }
 
@@ -312,29 +306,46 @@ class App {
   }
 
   // ===== MAP =====
-  renderMap(maxLevel) {
+  async loadMapWindow() {
     const container = document.getElementById('mapContainer');
-    container.innerHTML = '';
-    const current = maxLevel + 1;
-    for (let i = 1; i <= Math.min(current + 4, 500); i++) {
-      const isCompleted = i <= maxLevel;
-      const isCurrent = i === current;
-      const isLocked = i > current;
-
-      const node = document.createElement('div');
-      node.className = `level-node ${isCompleted ? 'completed' : isCurrent ? 'current' : 'locked'}`;
-      node.innerHTML = isLocked ? `${i} 🔒` : `${i}`;
-      if (!isLocked) {
-        node.onclick = () => this.startLevel(i);
-      }
-      container.appendChild(node);
-
-      if (i < 500) {
-        const line = document.createElement('div');
-        line.className = `path-line ${isCompleted ? 'done' : ''}`;
-        container.appendChild(line);
+    try {
+      const w = await window.api.get('/levels/map-window');
+      // Пока шёл запрос, пользователь мог уйти с карты
+      if (this.currentScreen !== 'map') return;
+      this.renderMapWindow(w);
+    } catch (e) {
+      if (this.currentScreen === 'map') {
+        this.showToast(e.message || 'Ошибка загрузки карты');
       }
     }
+  }
+
+  renderMapWindow(w) {
+    const container = document.getElementById('mapContainer');
+    container.innerHTML = '';
+
+    w.levels.forEach((node, idx) => {
+      const el = document.createElement('div');
+      el.className = `level-node ${node.status}`;
+      if (node.status === 'done') {
+        el.innerHTML = `${node.number}<span class="node-stars">${'⭐'.repeat(node.stars)}</span>`;
+        el.onclick = () => this.startLevel(node.number);
+      } else if (node.status === 'current') {
+        el.textContent = node.number;
+        el.onclick = () => this.startLevel(node.number);
+      } else {
+        el.innerHTML = `${node.number} 🔒`;
+        el.onclick = () => this.showToast('Пройдите предыдущие уровни');
+      }
+      container.appendChild(el);
+
+      if (idx < w.levels.length - 1) {
+        const line = document.createElement('div');
+        line.className = `path-line ${node.status === 'done' ? 'done' : ''}`;
+        container.appendChild(line);
+      }
+    });
+
     // Scroll to current
     setTimeout(() => {
       const current = container.querySelector('.current');

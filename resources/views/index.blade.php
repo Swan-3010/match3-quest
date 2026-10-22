@@ -49,6 +49,7 @@
   .level-node.current { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: var(--accent); color: white; box-shadow: 0 0 24px rgba(99,102,241,0.4); animation: pulse-glow 2s infinite; width: 64px; height: 64px; font-size: 20px; }
   @keyframes pulse-glow { 0%,100%{box-shadow:0 0 20px rgba(99,102,241,0.3)} 50%{box-shadow:0 0 30px rgba(99,102,241,0.5)} }
   .level-node.locked { background: var(--surface-2); color: var(--text-3); cursor: not-allowed; font-size: 14px; }
+  .node-stars { position: absolute; bottom: -8px; left: 0; right: 0; font-size: 9px; letter-spacing: -1px; text-align: center; line-height: 1; pointer-events: none; }
   .path-line { width: 3px; height: 20px; background: var(--border); border-radius: 2px; flex-shrink: 0; }
   .path-line.done { background: var(--success); }
 
@@ -328,7 +329,7 @@
 <!-- BOTTOM NAV -->
 <div class="bottom-nav" id="bottomNav" style="display:none;">
   <button class="nav-item" data-screen="menu" onclick="app.showScreen('menu')"><span class="icon">🏠</span><span>Меню</span></button>
-  <button class="nav-item" data-screen="map" onclick="app.showScreen('map'); app.renderMap(app.userProgress?.max_level_reached || 1)"><span class="icon">🗺️</span><span>Карта</span></button>
+  <button class="nav-item" data-screen="map" onclick="app.showScreen('map')"><span class="icon">🗺️</span><span>Карта</span></button>
   <button class="nav-item" data-screen="shop" onclick="app.showScreen('shop'); app.loadShop()"><span class="icon">🛒</span><span>Магазин</span></button>
   <button class="nav-item" data-screen="profile" onclick="app.showScreen('profile'); app.loadProfile()"><span class="icon">👤</span><span>Профиль</span></button>
 </div>
@@ -428,9 +429,6 @@ App.prototype.showScreen = function(name) {
   document.getElementById('bottomNav').style.display = showNav ? 'flex' : 'none';
   document.getElementById('sharedTopBar').style.display = showTop ? 'flex' : 'none';
 
-  if (name === 'map' && this.userProgress) {
-    this.renderMap(this.userProgress.max_level_reached || 1);
-  }
   if (name === 'menu' && this.userProgress) {
     document.getElementById('menuLevels').textContent = this.userProgress.max_level_reached || 0;
     document.getElementById('menuScore').textContent = (this.userProgress.total_score || 0).toLocaleString();

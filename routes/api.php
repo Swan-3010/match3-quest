@@ -28,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/inventory', [UserController::class, 'inventory']);
 
     Route::get('/levels', [LevelController::class, 'index']);
+    Route::get('/levels/map-window', [LevelController::class, 'mapWindow']);
     Route::get('/levels/{id}', [LevelController::class, 'show']);
     Route::post('/levels/{id}/start', [LevelController::class, 'start']);
     Route::post('/levels/{id}/complete', [LevelController::class, 'complete']);
