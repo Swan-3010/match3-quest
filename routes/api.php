@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\LevelController;
 use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\ConfigController;
+use App\Http\Controllers\Api\HelpController;
 use App\Http\Controllers\Api\DailyController;
 use App\Http\Controllers\Api\AchievementController;
 use App\Http\Controllers\Api\AnalyticsController;
@@ -18,6 +19,7 @@ Route::post('/auth/recover-reset', [AuthController::class, 'recoverReset']);
 
 // Публичный: нужен до авторизации (экран логина, гостевой режим)
 Route::get('/config', [ConfigController::class, 'index']);
+Route::get('/help', [HelpController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

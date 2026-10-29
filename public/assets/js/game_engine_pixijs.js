@@ -16,6 +16,7 @@ const CONFIG = {
   BASE_SCORE_MATCH_4: 150,
   BASE_SCORE_MATCH_5: 300,
   CASCADE_BONUS: 0.20,
+  BOOSTER_TILE_SCORE: 20,
   SWAP_DURATION: 150,
   DESTROY_DURATION: 200,
   FALL_DURATION: 300,
@@ -251,6 +252,7 @@ class GameRenderer {
     this.padding = 8;
     this.particles = [];
     this.floatingTexts = [];
+    this.hoverOverlay = null;
   }
 
   async init() {
@@ -281,6 +283,7 @@ class GameRenderer {
 
     // Input
     this._setupInput();
+    this.hoverOverlay = null;
   }
 
   _setupInput() {
@@ -507,6 +510,26 @@ class GameRenderer {
       if (tx === c && ty === r) return child;
     }
     return null;
+  }
+
+  // Подсветка ячейки под курсором в режиме прицеливания бустера
+  showCellHighlight(r, c, color = 0xffe08a) {
+    this.clearCellHighlight();
+    if (r == null || c == null) return;
+    const g = new Graphics();
+    g.lineStyle(3, color, 0.95);
+    g.drawRoundedRect(1, 1, this.tileSize - 2, this.tileSize - 2, CONFIG.TILE_RADIUS);
+    g.x = this.padding + c * (this.tileSize + this.gap);
+    g.y = this.padding + r * (this.tileSize + this.gap);
+    this.hoverOverlay = g;
+    this.app.stage.addChild(g);
+  }
+
+  clearCellHighlight() {
+    if (this.hoverOverlay) {
+      try { this.hoverOverlay.parent?.removeChild(this.hoverOverlay); } catch (e) {}
+      this.hoverOverlay = null;
+    }
   }
 
   _easeOutQuad(t) { return t * (2 - t); }
@@ -859,28 +882,124 @@ export class Match3Engine {
 
   async _activateBooster(type, r, c) {
     if (this.processing) return;
+    const N = CONFIG.GRID_SIZE;
+    // Обратная совместимость со старыми кодами
+    const code = type === 'row' ? 'meteor_row' : type === 'col' ? 'meteor_col' : type;
+    const needsCell = code !== 'shuffle';
+    if (needsCell && (r < 0 || r >= N || c < 0 || c >= N)) return;
+
     this.processing = true;
+    let applied = false;
     try {
-      const toDestroy = [];
-      if (type === 'hammer') {
-        toDestroy.push({ r, c, color: this.state.grid[r][c].color });
-      } else if (type === 'row') {
-        for (let cc = 0; cc < CONFIG.GRID_SIZE; cc++) {
-          toDestroy.push({ r, c: cc, color: this.state.grid[r][cc].color });
+      if (code === 'shuffle') {
+        this.state.shuffle();
+        this.renderer.renderGrid(this.state.grid);
+        applied = true;
+      } else {
+        const initial = [];
+        const push = (rr, cc) => {
+          if (rr >= 0 && rr < N && cc >= 0 && cc < N) {
+            initial.push({ r: rr, c: cc, color: this.state.grid[rr][cc].color });
+          }
+        };
+        if (code === 'hammer') {
+          push(r, c);
+        } else if (code === 'meteor_row') {
+          for (let cc = 0; cc < N; cc++) push(r, cc);
+        } else if (code === 'meteor_col') {
+          for (let rr = 0; rr < N; rr++) push(rr, c);
+        } else if (code === 'cross_diag') {
+          for (let i = 0; i < N; i++) {
+            push(r, i); // строка
+            push(i, c); // столбец
+          }
+          for (let i = -N + 1; i < N; i++) {
+            push(r + i, c + i); // диагональ \
+            push(r + i, c - i); // диагональ /
+          }
         }
-      } else if (type === 'col') {
-        for (let rr = 0; rr < CONFIG.GRID_SIZE; rr++) {
-          toDestroy.push({ r: rr, c, color: this.state.grid[rr][c].color });
+        if (initial.length > 0) {
+          // Цепная детонация: спецфишки под раздачей взрываются сами
+          const toDestroy = this._expandWithChain(initial);
+          // Очки за фишки, снесённые бустером (до каскадов), ход не тратится
+          const pts = toDestroy.length * CONFIG.BOOSTER_TILE_SCORE;
+          this.state.score += pts;
+          this._emit('scoreChanged', this.state.score, pts, 0);
+          await this._destroyTiles(toDestroy);
+          await this._applyGravity();
+          await this._processMatches();
+          applied = true;
         }
-      }
-      if (toDestroy.length > 0) {
-        await this._destroyTiles(toDestroy);
-        await this._applyGravity();
-        await this._processMatches();
       }
     } finally {
       this.processing = false;
+      try { this.repairSync(); } catch (e) { console.error('repairSync failed:', e); }
     }
+    if (applied) this._emit('boosterApplied', type, r, c);
+  }
+
+  // Рекурсивный сбор ячеек к уничтожению: спецфишки детонируют со своим эффектом.
+  // visited защищает от зацикливания, дублей нет.
+  _expandWithChain(initial) {
+    const visited = new Set();
+    const queue = [...initial];
+    const result = [];
+    while (queue.length) {
+      const cur = queue.pop();
+      const key = cur.r + ',' + cur.c;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      result.push(cur);
+      const tile = this.state.grid[cur.r]?.[cur.c];
+      if (tile && tile.special) {
+        for (const extra of this._specialBlastTiles(tile.special, cur.r, cur.c)) {
+          if (!visited.has(extra.r + ',' + extra.c)) queue.push(extra);
+        }
+      }
+    }
+    return result;
+  }
+
+  // Ячейки, которые снесёт одна спецфишка (тот же эффект, что у _activateSpecial)
+  _specialBlastTiles(special, r, c) {
+    const out = [];
+    const N = CONFIG.GRID_SIZE;
+    const push = (rr, cc) => {
+      if (rr >= 0 && rr < N && cc >= 0 && cc < N) {
+        out.push({ r: rr, c: cc, color: this.state.grid[rr][cc].color });
+      }
+    };
+    if (special === 'ROCKET_H') {
+      for (let cc = 0; cc < N; cc++) push(r, cc);
+    } else if (special === 'ROCKET_V') {
+      for (let rr = 0; rr < N; rr++) push(rr, c);
+    } else if (special === 'BOMB') {
+      for (let rr = r - 1; rr <= r + 1; rr++) {
+        for (let cc = c - 1; cc <= c + 1; cc++) push(rr, cc);
+      }
+    } else if (special === 'DISCO') {
+      // Соседа нет — берём самый частый цвет на поле
+      const counts = {};
+      for (let rr = 0; rr < N; rr++) {
+        for (let cc = 0; cc < N; cc++) {
+          const col = this.state.grid[rr][cc].color;
+          if (col >= 0) counts[col] = (counts[col] || 0) + 1;
+        }
+      }
+      let best = -1, bestCount = 0;
+      for (const col in counts) {
+        if (counts[col] > bestCount) { bestCount = counts[col]; best = +col; }
+      }
+      if (best >= 0) {
+        for (let rr = 0; rr < N; rr++) {
+          for (let cc = 0; cc < N; cc++) {
+            if (this.state.grid[rr][cc].color === best) push(rr, cc);
+          }
+        }
+      }
+      push(r, c);
+    }
+    return out;
   }
 
   useBooster(type, targetR, targetC) {

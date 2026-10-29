@@ -4,8 +4,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Level;
 use App\Models\SessionLog;
+use App\Models\UserProgress;
 use App\Services\Game\AntiCheatService;
+use App\Services\Game\EconomyConfig;
 use App\Services\Game\LevelGeneratorService;
+use App\Services\Game\WalletService;
+use App\Services\User\LifeRegenService;
+use DomainException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +39,19 @@ class LevelController extends Controller
         $number = (int) $id;
         $level = Level::where('level_number', $number)->first()
             ?? app(LevelGeneratorService::class)->generate($number);
+
+        $progress = $request->user()->progress;
+        if ($progress) {
+            $regen = app(LifeRegenService::class);
+            $regen->regenerate($progress);
+            if ($progress->lives < 1) {
+                return response()->json([
+                    'error' => 'no_lives',
+                    'next_regen_at' => $regen->getNextRegenAt($progress)?->toIso8601String(),
+                ], 403);
+            }
+        }
+
         $sessionId = Str::uuid()->toString();
 
         // Store session in cache for 1 hour
@@ -110,72 +128,86 @@ class LevelController extends Controller
             'moves_log' => 'nullable|array',
             'client_hash' => 'nullable|string',
             'boosters_used' => 'nullable|array',
+            'boosters_used.*' => 'string',
         ]);
 
-        $level = Level::findOrFail($id);
-        $user = $request->user();
-        $progress = $user->progress;
+        return DB::transaction(function () use ($request, $id, $data) {
+            $level = Level::findOrFail($id);
+            $user = $request->user();
+            $progress = UserProgress::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+            $wallet = app(WalletService::class);
 
-        // Anti-cheat (stub)
-        $antiCheat = app(AntiCheatService::class);
-        if (!$antiCheat->validate($level, $data['moves_log'] ?? [], $data['score'], $data['moves_used'])) {
-            return response()->json(['error' => 'Validation failed'], 400);
-        }
+            app(LifeRegenService::class)->regenerate($progress);
 
-        // Save session log
-        SessionLog::create([
-            'user_id' => $user->id,
-            'level_id' => $id,
-            'moves_used' => $data['moves_used'],
-            'score' => $data['score'],
-            'stars_earned' => $data['stars'],
-            'result' => $data['result'],
-            'moves_log' => $data['moves_log'],
-            'client_hash' => $data['client_hash'],
-        ]);
-
-        $rewards = [];
-        $nextLevelAvailable = false;
-
-        if ($data['result'] === 'win') {
-            // Update progress
-            if ($id > $progress->max_level_reached) {
-                $progress->max_level_reached = $id;
+            // Anti-cheat (stub)
+            $antiCheat = app(AntiCheatService::class);
+            if (!$antiCheat->validate($level, $data['moves_log'] ?? [], $data['score'], $data['moves_used'])) {
+                return response()->json(['error' => 'Validation failed'], 400);
             }
-            $progress->total_score += $data['score'];
-            $progress->total_stars += $data['stars'];
-            $progress->coins += floor($data['score'] / 30);
-            $progress->save();
 
-            $nextLevelAvailable = true;
-
-            // Check rewards
-            foreach ($level->rewards as $reward) {
-                if ($data['stars'] >= $reward->threshold_type) {
-                    $rewards[] = [
-                        'type' => $reward->reward_code,
-                        'qty' => $reward->reward_qty,
-                    ];
+            // Списание бустеров до записи сессии: при нехватке — без изменений
+            foreach ($data['boosters_used'] ?? [] as $code) {
+                try {
+                    $wallet->apply($progress, 'booster:'.$code, -1, 'booster_used', 'level', $level->id);
+                } catch (DomainException $e) {
+                    return response()->json(['error' => 'insufficient_boosters', 'booster' => $code], 400);
                 }
             }
-        } else {
-            // Fail: -1 life
-            $progress->lives = max(0, $progress->lives - 1);
-            $progress->save();
-            // Still unlock next level per requirements
-            if ($id >= $progress->max_level_reached) {
-                $progress->max_level_reached = $id + 1;
-                $progress->save();
-                $nextLevelAvailable = true;
-            }
-        }
 
-        return response()->json([
-            'success' => $data['result'] === 'win',
-            'rewards' => $rewards,
-            'lives_left' => $progress->lives,
-            'next_level_available' => $nextLevelAvailable,
-            'new_score' => $progress->total_score,
-        ]);
+            // Save session log
+            SessionLog::create([
+                'user_id' => $user->id,
+                'level_id' => $id,
+                'moves_used' => $data['moves_used'],
+                'score' => $data['score'],
+                'stars_earned' => $data['stars'],
+                'result' => $data['result'],
+                'moves_log' => $data['moves_log'],
+                'client_hash' => $data['client_hash'],
+            ]);
+
+            $rewards = [];
+            $nextLevelAvailable = false;
+
+            if ($data['result'] === 'win') {
+                // Update progress
+                $progress->max_level_reached = max($progress->max_level_reached, $id);
+                $progress->total_score += $data['score'];
+                $progress->total_stars += $data['stars'];
+                $progress->save();
+
+                $wallet->apply($progress, 'coins', (int) floor($data['score'] / 30), 'level_reward', 'level', $level->id);
+
+                $nextLevelAvailable = true;
+
+                // Check rewards
+                foreach ($level->rewards as $reward) {
+                    if ($data['stars'] >= $reward->threshold_type) {
+                        $rewards[] = [
+                            'type' => $reward->reward_code,
+                            'qty' => $reward->reward_qty,
+                        ];
+                    }
+                }
+            } else {
+                // Fail: -1 life
+                $wallet->apply($progress, 'lives', -1, 'life_loss', 'level', $level->id);
+                $progress = UserProgress::where('id', $progress->id)->lockForUpdate()->firstOrFail();
+                // фикс бага A: жизнь не должна вернуться мгновенно
+                if ($progress->lives < (int) EconomyConfig::get('max_lives', 5)) {
+                    $progress->last_life_regen_at = now();
+                    $progress->save();
+                }
+                // фикс бага B: поражение не открывает следующий уровень
+            }
+
+            return response()->json([
+                'success' => $data['result'] === 'win',
+                'rewards' => $rewards,
+                'lives_left' => $progress->lives,
+                'next_level_available' => $nextLevelAvailable,
+                'new_score' => $progress->total_score,
+            ]);
+        });
     }
 }

@@ -63,18 +63,50 @@
   .help-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
   .help-overlay.open { display: flex; }
   .help-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg, 16px); max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 20px; font-size: 13px; line-height: 1.55; color: var(--text-2); }
-  .help-modal h3 { color: var(--text-1, #fff); margin: 14px 0 6px; font-size: 15px; }
-  .help-modal h3:first-child { margin-top: 0; }
-  .help-modal ul { padding-left: 18px; margin: 4px 0; }
-  .help-modal li { margin-bottom: 3px; }
-  .help-modal table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
-  .help-modal th, .help-modal td { border: 1px solid var(--border); padding: 4px 6px; text-align: left; }
   .help-close { float: right; background: none; border: none; color: var(--text-3); font-size: 20px; cursor: pointer; line-height: 1; padding: 0 2px; }
   .game-boosters::-webkit-scrollbar { display: none; }
-  .booster-chip { display: flex; flex-direction: column; align-items: center; gap: 1px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 8px; min-width: 44px; font-size: 10px; flex-shrink: 0; cursor: pointer; }
-  .booster-chip:active { transform: scale(0.92); }
-  .booster-chip .icon { font-size: 18px; }
-  .booster-chip .qty { font-size: 9px; color: var(--text-3); }
+  .booster-slot {
+    --booster-hue: 0deg;
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 52px; padding: 7px 8px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md);
+    cursor: pointer; flex-shrink: 0; font-family: inherit; color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .booster-slot:active { transform: scale(0.94); }
+  .booster-slot .booster-icon { font-size: 22px; line-height: 1; filter: hue-rotate(var(--booster-hue)); }
+  .booster-slot .booster-glyph {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px; font-weight: 800; color: #fff; line-height: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+    pointer-events: none;
+  }
+  .booster-slot .booster-badge {
+    position: absolute; top: -5px; right: -5px;
+    background: var(--surface-3); border: 1px solid var(--border); color: var(--text-2);
+    font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 999px; line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  .booster--hammer { --booster-hue: 0deg; }
+  .booster--row { --booster-hue: 180deg; }   /* синий */
+  .booster--col { --booster-hue: 255deg; }   /* фиолетовый */
+  .booster--cross { --booster-hue: -45deg; } /* красно-золотой */
+  .booster--shuffle { --booster-hue: 0deg; } /* без перекраски */
+  .booster-slot.selected { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(245,158,11,0.35), 0 0 14px rgba(245,158,11,0.25); }
+  .booster-slot.empty .booster-icon { opacity: 0.4; }
+  .booster-slot.applying .booster-icon { animation: spin 0.8s linear infinite; }
+  .booster-slot:disabled { cursor: default; }
+  #gameCanvasContainer.booster-aiming canvas { cursor: crosshair; }
+
+  /* BOOSTER OFFER MODAL */
+  .booster-offer { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 950; padding: 20px; }
+  .booster-offer.active { display: flex; }
+  .booster-offer-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; max-width: 300px; width: 100%; text-align: center; animation: slideUp 0.3s ease-out; }
+  .booster-offer-text { font-size: 14px; margin-bottom: 14px; color: var(--text-2); line-height: 1.5; }
+  .booster-offer-actions { display: flex; flex-direction: column; gap: 8px; }
+
   .canvas-area { height: calc(100vh - 200px); display: flex; align-items: center; justify-content: center; padding: 8px; }
   #gameCanvasContainer { width: 100%; max-width: 360px; aspect-ratio: 1; }
 
@@ -103,6 +135,20 @@
   .shop-card .price { display: inline-flex; align-items: center; gap: 4px; background: var(--surface-2); padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
   .shop-card .price.gold { color: var(--gold); }
   .shop-card .price.gem { color: var(--accent-2); }
+  .shop-card:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  /* HELP ACCORDION */
+  .help-section { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; background: var(--surface-2); }
+  .help-section summary { cursor: pointer; padding: 10px 12px; font-weight: 600; color: var(--text); font-size: 13px; list-style: none; user-select: none; }
+  .help-section summary::-webkit-details-marker { display: none; }
+  .help-section summary::before { content: '▸ '; color: var(--accent); }
+  .help-section[open] summary::before { content: '▾ '; }
+  .help-section-body { padding: 0 12px 10px; }
+  .help-section-body ul { padding-left: 18px; margin: 4px 0; }
+  .help-section-body li { margin-bottom: 3px; }
+  .help-section-body p { margin: 4px 0; }
+  .help-section-body table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+  .help-section-body th, .help-section-body td { border: 1px solid var(--border); padding: 4px 6px; text-align: left; }
 
   /* PROFILE */
   .profile-header { text-align: center; padding: 24px 20px 16px; background: linear-gradient(180deg, rgba(99,102,241,0.06) 0%, transparent 100%); }
@@ -246,11 +292,31 @@
     <div class="game-stat"><div class="lbl">Счёт</div><div class="val" id="gameScore" style="color:var(--gold)">0</div></div>
     <div class="game-stat"><div class="lbl">Ходы</div><div class="val" id="gameMoves" style="color:var(--danger)">0</div></div>
   </div>
-  <div class="game-boosters">
-    <div class="booster-chip" onclick="app.useBooster('hammer')"><span class="icon">🔨</span><span class="qty">×3</span></div>
-    <div class="booster-chip" onclick="app.useBooster('row')"><span class="icon">➡️</span><span class="qty">×2</span></div>
-    <div class="booster-chip" onclick="app.useBooster('col')"><span class="icon">⬇️</span><span class="qty">×2</span></div>
-    <div class="booster-chip" onclick="app.gameEngine?.shuffle()"><span class="icon">🔀</span><span class="qty">Shuffle</span></div>
+  <div class="game-boosters" id="boostPanel">
+    <button type="button" class="booster-slot booster--hammer" data-code="hammer" onclick="app.selectBooster('hammer')" aria-label="Молот">
+      <span class="booster-icon">🔨</span><span class="booster-glyph"></span><span class="booster-badge">×0</span>
+    </button>
+    <button type="button" class="booster-slot booster--row" data-code="meteor_row" onclick="app.selectBooster('meteor_row')" aria-label="Метеор: строка">
+      <span class="booster-icon">☄️</span><span class="booster-glyph">→</span><span class="booster-badge">×0</span>
+    </button>
+    <button type="button" class="booster-slot booster--col" data-code="meteor_col" onclick="app.selectBooster('meteor_col')" aria-label="Метеор: столбец">
+      <span class="booster-icon">☄️</span><span class="booster-glyph">↓</span><span class="booster-badge">×0</span>
+    </button>
+    <button type="button" class="booster-slot booster--cross" data-code="cross_diag" onclick="app.selectBooster('cross_diag')" aria-label="Перекрёстный удар">
+      <span class="booster-icon">☄️</span><span class="booster-glyph">✛</span><span class="booster-badge">×0</span>
+    </button>
+    <button type="button" class="booster-slot booster--shuffle" data-code="shuffle" onclick="app.selectBooster('shuffle')" aria-label="Перемешивание">
+      <span class="booster-icon">🔀</span><span class="booster-glyph"></span><span class="booster-badge">×0</span>
+    </button>
+  </div>
+  <div class="booster-offer" id="boosterOffer" onclick="if (event.target === this) app.hideBoosterOffer()">
+    <div class="booster-offer-card">
+      <div class="booster-offer-text" id="boosterOfferText"></div>
+      <div class="booster-offer-actions">
+        <button class="btn btn-primary" id="boosterOfferBuy">В магазин</button>
+        <button class="btn btn-secondary" onclick="app.hideBoosterOffer()">Отмена</button>
+      </div>
+    </div>
   </div>
   <div class="canvas-area">
     <div id="gameCanvasContainer"></div>
@@ -276,8 +342,9 @@
     <div class="result-score" id="resultScore">0</div>
     <div class="result-rewards" id="resultRewards"></div>
     <div class="result-actions">
-      <button class="btn btn-primary" onclick="app.hideResult(); app.showScreen('map')">К карте</button>
-      <button class="btn btn-secondary" onclick="app.hideResult(); app.startLevel(app.currentLevelId + 1)">Следующий</button>
+      <button class="btn btn-primary" id="resultBtnMap" onclick="app.hideResult(); app.showScreen('map')">К карте</button>
+      <button class="btn btn-secondary" id="resultBtnNext" onclick="app.hideResult(); app.startLevel(app.currentLevelId + 1)">Следующий</button>
+      <button class="btn btn-secondary" id="resultBtnRetry" style="display:none" onclick="app.hideResult(); app.startLevel(app.currentLevelId)">Заново</button>
     </div>
   </div>
 </div>
@@ -285,10 +352,9 @@
 <!-- SCREEN: SHOP -->
 <div class="screen" id="screen-shop">
   <div class="shop-tabs">
-    <button class="shop-tab active" onclick="app.loadShop('imba')">Имбы</button>
-    <button class="shop-tab" onclick="app.loadShop('boost')">Бустеры</button>
-    <button class="shop-tab" onclick="app.loadShop('life')">Жизни</button>
-    <button class="shop-tab" onclick="app.loadShop('gems')">Гемы</button>
+    <button class="shop-tab active" data-category="imba" onclick="app.loadShop('imba')">Бустеры</button>
+    <button class="shop-tab" data-category="life" onclick="app.loadShop('life')">Жизни</button>
+    <button class="shop-tab" data-category="gems" onclick="app.loadShop('gems')">Гемы</button>
   </div>
   <div class="shop-grid" id="shopGrid"></div>
 </div>
@@ -417,6 +483,7 @@ function showToast(msg) {
 
 function toggleHelp(open) {
   document.getElementById('helpOverlay').classList.toggle('open', open);
+  if (open && window.app) window.app.ensureHelp();
 }
 
 // Show/hide shared UI based on screen
@@ -442,37 +509,7 @@ App.prototype.showScreen = function(name) {
 <div class="help-overlay" id="helpOverlay" onclick="if (event.target === this) toggleHelp(false)">
   <div class="help-modal">
     <button class="help-close" onclick="toggleHelp(false)" aria-label="Закрыть">✕</button>
-    <h3>Как играть</h3>
-    <ul>
-      <li>Поле 9×9. Свайпайте соседние фишки, чтобы собрать <b>3 и более</b> одинаковых в ряд.</li>
-      <li>Каждый свайп тратит <b>1 ход</b>. Наберите целевой счёт до конца ходов.</li>
-      <li>Линия не собралась — фишки вернутся на место.</li>
-    </ul>
-    <h3>Спецфишки (линия из 4–5)</h3>
-    <table>
-      <tr><th>Спецфишка</th><th>Как получить</th><th>Эффект</th></tr>
-      <tr><td>🚀 Ракета</td><td>4 в ряд</td><td>Чистит строку или столбец</td></tr>
-      <tr><td>💣 Бомба</td><td>5 в Г/Т-форме</td><td>Взрыв 3×3 (5×5 при комбо)</td></tr>
-      <tr><td>🪩 Диско</td><td>5 в ряд</td><td>Убирает все фишки цвета соседа</td></tr>
-    </table>
-    <p>Спецфишка активируется свайпом на соседнюю фишку и расходуется.</p>
-    <h3>Комбо — свайп двух спецфишек</h3>
-    <ul>
-      <li>🚀+🚀 — крест (строка + столбец), 800 очков</li>
-      <li>🚀+💣 — 3 линии, 1000 очков</li>
-      <li>💣+💣 — взрыв 7×7, 1200 очков</li>
-      <li>🪩+🚀 / 🪩+💣 — все фишки цвета превращаются в ракеты/бомбы, 1500 очков</li>
-      <li>🪩+🪩 — очистка всего поля, 5000 очков</li>
-    </ul>
-    <h3>Каскады</h3>
-    <p>После уничтожения сверху падают новые фишки. Каждый каскад умножает очки на +20% (макс. 12 подряд). Рубите внизу поля — больше падений, больше каскадов.</p>
-    <h3>Бустеры</h3>
-    <ul>
-      <li>🔨 Молот — уничтожает одну фишку</li>
-      <li>➡️/⬇️ Метеор — чистит строку/столбец</li>
-      <li>🔀 Shuffle — перемешать поле</li>
-    </ul>
-    <p>Бустеры покупаются за монеты в магазине. Жизни восстанавливаются: 1 жизнь за 3 часа, максимум 5.</p>
+    <div id="helpContent"></div>
   </div>
 </div>
 @endsection

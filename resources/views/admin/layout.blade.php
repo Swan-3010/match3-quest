@@ -77,6 +77,7 @@
       <a href="{{ route('admin.features.index') }}" class="nav-link {{ request()->routeIs('admin.features.*') ? 'active' : '' }}"><span class="icon">⭐</span>Фишки</a>
       <a href="{{ route('admin.imbas.index') }}" class="nav-link {{ request()->routeIs('admin.imbas.*') ? 'active' : '' }}"><span class="icon">🔨</span>Имбы</a>
       <a href="{{ route('admin.shop.index') }}" class="nav-link {{ request()->routeIs('admin.shop.*') ? 'active' : '' }}"><span class="icon">🛒</span>Магазин</a>
+      <a href="{{ route('admin.configs.index') }}" class="nav-link {{ request()->routeIs('admin.configs.*') ? 'active' : '' }}"><span class="icon">⚙️</span>Конфиги</a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">Пользователи</div>
