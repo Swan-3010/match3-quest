@@ -78,6 +78,18 @@ class WalletShopTest extends TestCase
         $this->assertDatabaseMissing('purchases', ['user_id' => $this->userId]);
     }
 
+    public function test_buy_life_when_full_precedes_insufficient_funds(): void
+    {
+        // жизни полны и гемов нет — приоритет у lives_full, а не insufficient_funds
+        $token = $this->tokenFor(['lives' => 5, 'gems' => 0]);
+
+        $res = $this->purchase($token, ['item_code' => 'life_1', 'quantity' => 1]);
+        $res->assertStatus(422)->assertJson(['error' => 'lives_full']);
+
+        $this->assertDatabaseHas('user_progress', ['user_id' => $this->userId, 'lives' => 5, 'gems' => 0]);
+        $this->assertDatabaseMissing('wallet_transactions', ['user_id' => $this->userId]);
+    }
+
     public function test_buy_life_spends_gems_and_grants_life(): void
     {
         $token = $this->tokenFor(['lives' => 3, 'gems' => 10]);
