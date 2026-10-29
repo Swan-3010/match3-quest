@@ -180,6 +180,7 @@ jobs:
           fi
 
           php8.2 artisan migrate --force
+          php8.2 artisan db:seed --force
           php8.2 artisan config:cache
           php8.2 artisan view:cache
           php8.2 artisan route:list --path=api/v1

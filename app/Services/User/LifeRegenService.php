@@ -2,16 +2,25 @@
 namespace App\Services\User;
 
 use App\Models\UserProgress;
+use App\Services\Game\EconomyConfig;
 use Carbon\Carbon;
 
 class LifeRegenService
 {
-    const MAX_LIVES = 5;
-    const REGEN_MINUTES = 180;
+    public function maxLives(): int
+    {
+        return (int) EconomyConfig::get('max_lives', 5);
+    }
+
+    public function regenMinutes(): int
+    {
+        return (int) EconomyConfig::get('regen_minutes', 180);
+    }
 
     public function regenerate(UserProgress $progress): void
     {
-        if ($progress->lives >= self::MAX_LIVES) return;
+        $maxLives = $this->maxLives();
+        if ($progress->lives >= $maxLives) return;
         if (!$progress->last_life_regen_at) {
             $progress->last_life_regen_at = now();
             $progress->save();
@@ -19,18 +28,19 @@ class LifeRegenService
         }
 
         $minutesSince = $progress->last_life_regen_at->diffInMinutes(now());
-        $livesToAdd = intdiv($minutesSince, self::REGEN_MINUTES);
+        $livesToAdd = intdiv($minutesSince, $this->regenMinutes());
 
         if ($livesToAdd > 0) {
-            $progress->lives = min(self::MAX_LIVES, $progress->lives + $livesToAdd);
-            $progress->last_life_regen_at = $progress->last_life_regen_at->copy()->addMinutes($livesToAdd * self::REGEN_MINUTES);
+            $progress->lives = min($maxLives, $progress->lives + $livesToAdd);
+            $progress->last_life_regen_at = $progress->last_life_regen_at->copy()->addMinutes($livesToAdd * $this->regenMinutes());
             $progress->save();
         }
     }
 
     public function getNextRegenAt(UserProgress $progress): ?Carbon
     {
-        if ($progress->lives >= self::MAX_LIVES) return null;
-        return $progress->last_life_regen_at->copy()->addMinutes(self::REGEN_MINUTES);
+        if ($progress->lives >= $this->maxLives()) return null;
+        if (!$progress->last_life_regen_at) return null;
+        return $progress->last_life_regen_at->copy()->addMinutes($this->regenMinutes());
     }
 }

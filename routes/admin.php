@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\LevelAdminController;
 use App\Http\Controllers\Admin\FeatureAdminController;
 use App\Http\Controllers\Admin\ImbaAdminController;
 use App\Http\Controllers\Admin\ShopAdminController;
+use App\Http\Controllers\Admin\ConfigAdminController;
 use App\Http\Controllers\Admin\UserAdminController;
 use App\Http\Controllers\Admin\AnalyticsAdminController;
 
@@ -30,8 +31,15 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->name('admin.')->g
 
     // Shop
     Route::get('/shop', [ShopAdminController::class, 'index'])->name('shop.index');
+    Route::get('/shop/create', [ShopAdminController::class, 'create'])->name('shop.create');
+    Route::post('/shop', [ShopAdminController::class, 'store'])->name('shop.store');
     Route::get('/shop/{id}/edit', [ShopAdminController::class, 'edit'])->name('shop.edit');
     Route::put('/shop/{id}', [ShopAdminController::class, 'update'])->name('shop.update');
+
+    // Configs
+    Route::get('/configs', [ConfigAdminController::class, 'index'])->name('configs.index');
+    Route::get('/configs/{id}/edit', [ConfigAdminController::class, 'edit'])->name('configs.edit');
+    Route::put('/configs/{id}', [ConfigAdminController::class, 'update'])->name('configs.update');
 
     // Users
     Route::get('/users', [UserAdminController::class, 'index'])->name('users.index');

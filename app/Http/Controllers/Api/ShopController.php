@@ -2,11 +2,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\ShopItem;
 use App\Models\Purchase;
-use App\Models\UserInventory;
+use App\Models\ShopItem;
+use App\Models\UserProgress;
+use App\Services\Game\EconomyConfig;
+use App\Services\Game\WalletService;
+use DomainException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class ShopController extends Controller
 {
@@ -31,51 +35,85 @@ class ShopController extends Controller
     {
         $data = $request->validate([
             'item_code' => 'required|string',
-            'quantity' => 'required|integer|min:1',
-            'currency' => 'required|in:coins,gems',
+            'quantity' => 'required|integer|min:1|max:99',
+            'currency' => 'nullable|string', // legacy, цена всегда из товара
             'context' => 'nullable|string',
+            'client_request_id' => 'nullable|string|max:64',
         ]);
-
-        $item = ShopItem::where('code', $data['item_code'])->where('is_active', true)->first();
-        if (!$item) return response()->json(['error' => 'Товар не найден'], 404);
 
         $user = $request->user();
-        $progress = $user->progress;
+        $clientRequestId = $data['client_request_id'] ?? null;
 
-        $price = $data['currency'] === 'coins' ? $item->price_coins : $item->price_gems;
-        $balanceField = $data['currency'] === 'coins' ? 'coins' : 'gems';
-
-        if (!$price || $progress->{$balanceField} < $price * $data['quantity']) {
-            return response()->json(['error' => 'Недостаточно средств'], 402);
+        if ($clientRequestId && Purchase::where('user_id', $user->id)->where('client_request_id', $clientRequestId)->exists()) {
+            return response()->json($this->resultPayload($user, $clientRequestId));
         }
 
-        // Deduct
-        $progress->{$balanceField} -= $price * $data['quantity'];
-        $progress->save();
+        $item = ShopItem::where('code', $data['item_code'])->where('is_active', true)->firstOrFail();
 
-        // Add to inventory if imba
-        if ($item->category === 'imba') {
-            $inv = UserInventory::firstOrCreate(
-                ['user_id' => $user->id, 'imba_code' => $item->code],
-                ['quantity' => 0]
-            );
-            $inv->quantity += $data['quantity'];
-            $inv->save();
+        $currency = $item->price_currency
+            ?? ($item->price_coins === null && $item->price_gems !== null ? 'gems' : 'coins');
+        $price = $currency === 'gems' ? $item->price_gems : $item->price_coins;
+        if ($price === null) {
+            return response()->json(['error' => 'Товар недоступен для покупки'], 422);
         }
 
-        Purchase::create([
-            'user_id' => $user->id,
-            'shop_item_code' => $item->code,
-            'quantity' => $data['quantity'],
-            'price_paid' => $price * $data['quantity'],
-            'currency' => $data['currency'],
-            'context' => $data['context'] ?? 'general',
-        ]);
+        $quantity = (int) $data['quantity'];
+        $wallet = app(WalletService::class);
 
-        return response()->json([
+        try {
+            DB::transaction(function () use ($user, $item, $currency, $price, $quantity, $data, $clientRequestId, $wallet) {
+                $progress = UserProgress::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+                $wallet->apply($progress, $currency, -$price * $quantity, 'purchase', 'shop_item', $item->id, [
+                    'code' => $item->code,
+                    'quantity' => $quantity,
+                ]);
+
+                switch ($item->category) {
+                    case 'imba':
+                    case 'boost':
+                        $wallet->apply($progress, 'booster:'.$item->code, $quantity, 'purchase_item', 'shop_item', $item->id);
+                        break;
+                    case 'life':
+                        $maxLives = (int) EconomyConfig::get('max_lives', 5);
+                        if ($progress->lives >= $maxLives) {
+                            throw new DomainException('lives_full');
+                        }
+                        $qty = (int) ($item->effect_json['qty'] ?? 1);
+                        $amount = min($qty, $maxLives - $progress->lives);
+                        $wallet->apply($progress, 'lives', $amount, 'purchase_item', 'shop_item', $item->id);
+                        break;
+                    case 'gems':
+                        $wallet->apply($progress, 'gems', $quantity, 'purchase_item', 'shop_item', $item->id);
+                        break;
+                }
+
+                Purchase::create([
+                    'user_id' => $user->id,
+                    'shop_item_code' => $item->code,
+                    'quantity' => $quantity,
+                    'price_paid' => $price * $quantity,
+                    'currency' => $currency,
+                    'context' => $data['context'] ?? 'general',
+                    'client_request_id' => $clientRequestId,
+                ]);
+            });
+        } catch (DomainException $e) {
+            $status = $e->getMessage() === 'lives_full' ? 422 : 402;
+            return response()->json(['error' => $e->getMessage()], $status);
+        }
+
+        return response()->json($this->resultPayload($user, $clientRequestId));
+    }
+
+    private function resultPayload($user, ?string $clientRequestId): array
+    {
+        $progress = $user->progress()->firstOrFail();
+        return [
             'success' => true,
             'inventory' => $user->inventory()->get(),
             'balance' => ['coins' => $progress->coins, 'gems' => $progress->gems, 'lives' => $progress->lives],
-        ]);
+            'client_request_id' => $clientRequestId,
+        ];
     }
 }

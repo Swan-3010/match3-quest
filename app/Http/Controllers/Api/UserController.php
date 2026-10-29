@@ -16,8 +16,11 @@ class UserController extends Controller
     public function progress(Request $request)
     {
         $progress = $request->user()->progress;
-        app(LifeRegenService::class)->regenerate($progress);
-        return response()->json($progress);
+        $regen = app(LifeRegenService::class);
+        $regen->regenerate($progress);
+        $data = $progress->toArray();
+        $data['next_regen_at'] = $regen->getNextRegenAt($progress)?->toIso8601String();
+        return response()->json($data);
     }
 
     public function inventory(Request $request)

@@ -1,7 +1,7 @@
 @extends('admin.layout')
 @section('title', 'Магазин')
 @section('content')
-<div class="page-header"><h1>🛒 Магазин</h1></div>
+<div class="page-header"><h1>🛒 Магазин</h1><a href="{{ route('admin.shop.create') }}" class="btn btn-primary">➕ Новый товар</a></div>
 <div class="card">
   <table class="table">
     <thead><tr><th>Код</th><th>Название</th><th>Категория</th><th>Цена</th><th>Контекст</th><th>Сортировка</th><th></th></tr></thead>
