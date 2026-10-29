@@ -64,6 +64,13 @@ class ShopController extends Controller
             DB::transaction(function () use ($user, $item, $currency, $price, $quantity, $data, $clientRequestId, $wallet) {
                 $progress = UserProgress::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
 
+                if ($item->category === 'life') {
+                    $maxLives = (int) EconomyConfig::get('max_lives', 5);
+                    if ($progress->lives >= $maxLives) {
+                        throw new DomainException('lives_full');
+                    }
+                }
+
                 $wallet->apply($progress, $currency, -$price * $quantity, 'purchase', 'shop_item', $item->id, [
                     'code' => $item->code,
                     'quantity' => $quantity,
@@ -76,9 +83,6 @@ class ShopController extends Controller
                         break;
                     case 'life':
                         $maxLives = (int) EconomyConfig::get('max_lives', 5);
-                        if ($progress->lives >= $maxLives) {
-                            throw new DomainException('lives_full');
-                        }
                         $qty = (int) ($item->effect_json['qty'] ?? 1);
                         $amount = min($qty, $maxLives - $progress->lives);
                         $wallet->apply($progress, 'lives', $amount, 'purchase_item', 'shop_item', $item->id);
